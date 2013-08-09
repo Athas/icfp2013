@@ -72,10 +72,11 @@ def solve(auth, id):
 
     troels = Process(target=run_troels, args=(auth, id, size, ops, maps))
     genetic = Process(target=run_genetic, args=(auth, id, size, ops, arguments, outputs))
-    timer = Process(target=timer_func)
     troels.start()
     genetic.start()
-    timer.start()
+
+    # timer = Process(target=timer_func)
+    # timer.start()
 
 def timer_func():
     k = 10
