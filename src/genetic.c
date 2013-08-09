@@ -223,10 +223,11 @@ int typecheck_helper(term_t *terms, int remaining, program_status *status) {
       status->type_error = 2;
       return 0;
     }
+    status->inside_fold = 2;
     remaining = typecheck_helper(terms, remaining, status);
     remaining = typecheck_helper(terms, remaining, status);
     status->inside_fold = 1;
-    remaining = typecheck_helper(terms, remaining, status);
+    remaining = typecheck_helper(terms, remaining-1, status);
     status->inside_fold = 2;
     break;
   case If0:
@@ -352,15 +353,12 @@ int compare(const void *p1_, const void *p2_) {
 static void update(prog_and_fitness *progs, int count) {
   int n;
 
+  for(n = 0; n < count; n++) {
 #ifdef TFOLD
-  for(n = 0; n < count; n++) {
-      progs[n].prog[0] = Fold;
-      progs[n].prog[1] = Arg;
-      progs[n].prog[2] = Zero;
-  }
+      progs[n].prog[PROGSIZE-1] = Fold;
+      progs[n].prog[PROGSIZE-2] = Arg;
+      progs[n].prog[PROGSIZE-3] = Zero;
 #endif
-
-  for(n = 0; n < count; n++) {
     if(progs[n].fitness == 0) {
       if(typecheck(progs[n].prog) != 0) {
         progs[n].fitness = -1L;
@@ -411,10 +409,10 @@ int main() {
           return 0;
         }
       }
-      /* for(n = 0; n < 32; n++) { */
-      /*   printf("%lu ", arena[n].fitness); */
-      /* } */
-      /* printf("\n"); */
+      for(n = 0; n < 32; n++) {
+        printf("%lu ", arena[n].fitness);
+      }
+      printf("\n");
     }
   }
 
