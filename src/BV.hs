@@ -71,7 +71,7 @@ ppExp (If e1 e2 e3) =
   "(if0 " ++ ppExp e1 ++ " " ++ ppExp e2 ++ " " ++ ppExp e3 ++ ")"
 ppExp (ApplyFold e1 e2 e3) =
     "(fold " ++ ppExp e1 ++ " " ++ ppExp e2 ++
-    " (" ++ ppId Byte ++ " " ++ ppId Acc ++ ") " ++ ppExp e3 ++ ")"
+    " (lambda (" ++ ppId Byte ++ " " ++ ppId Acc ++ ") " ++ ppExp e3 ++ "))"
 ppExp (ApplyUnOp op e) = "(" ++ ppUnOp op ++ " " ++ ppExp e ++ ")"
 ppExp (ApplyBinOp op e1 e2) =
     "(" ++ ppBinOp op ++ " " ++ ppExp e1 ++ " " ++ ppExp e2 ++ ")"
