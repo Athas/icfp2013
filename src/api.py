@@ -13,7 +13,7 @@ def request(auth, path, body=None):
 
 def mark(m, s):
     return m + '\n' + s
-    
+
 def as_json(s):
     return mark('json', s)
 
@@ -75,10 +75,10 @@ def train(auth, *args):
 
 def status(auth):
     return json_or_error(auth, 'status')
-    
+
 def error(s):
     print >> sys.stderr, 'error: ' + s
-    
+
 def print_help():
     print '''usage: ./api.py COMMAND [ARGS] -> TYPE\\nDATA
   where TYPE = 'json' | 'error'
@@ -118,6 +118,6 @@ def run_main():
         return
 
     print f()
-    
+
 if __name__ == '__main__':
     run_main()
