@@ -43,7 +43,8 @@ def get_problem(id):
 
 def unhex(t):
     return int(t[2:], 16)
-        
+
+pids = []
 def solve(auth, id):
     prob = get_problem(id)
     size = prob['size']
@@ -75,6 +76,12 @@ def solve(auth, id):
     troels.start()
     genetic.start()
 
+    raw_input()
+    for p in pids:
+        os.kill(pid, 9)
+    troels.terminate()
+    genetic.terminate()
+    
     # timer = Process(target=timer_func)
     # timer.start()
 
@@ -127,7 +134,9 @@ uint64_t test_results[] = %s;
     with open('src/data.h', 'w') as f:
         f.write(data)
     subprocess.Popen(['make', '-C', 'src'])
-    out = subprocess.Popen(['./src/genetic'], stdout=subprocess.PIPE).communicate()[0]
+    p = subprocess.Popen(['./src/genetic'], stdout=subprocess.PIPE)
+    pids.append(p.pid)
+    out = p.communicate()[0]
     prog = out.strip()
     guess_program(auth, id, prog, 'GENERNE', callback)
 
@@ -139,7 +148,9 @@ def run_troels(auth, id, size, ops, maps):
 def run_troels1(auth, id, size, ops, maps, callback):
     cmd = ['./src/Main', 'solve', str(size), str(ops).replace("'", '"'), str(maps).replace('L', '')]
     # print 'Command:', cmd
-    out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pids.append(p.pid)
+    out, err = p.communicate()
 
     out += err
     out = out.strip()
@@ -165,7 +176,7 @@ def guess_program(auth, id, prog, source, expand_search):
             print (source + ' WON! ') * 10
             with open('wins', 'w') as f:
                 f.write(id + '\n')
-            sys.exit()
+            
         elif j['status'] == 'mismatch':
             print 'MISMATCH.  REDOING.'
             inp, chal_res, guess = j['values']
