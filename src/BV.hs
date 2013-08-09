@@ -18,6 +18,7 @@ module BV
     where
 
 import Control.Applicative
+import Control.DeepSeq
 import Control.Monad.Reader
 
 import qualified Data.Map as M
@@ -31,7 +32,10 @@ import Text.Parsec.String
 data Id = Arg | Byte | Acc
         deriving (Eq, Ord, Show)
 
+instance NFData Id
+
 data Program = Program Exp
+             | ProgramTFold Exp
                deriving (Eq, Show)
 
 data Exp = Zero
@@ -43,6 +47,15 @@ data Exp = Zero
          | ApplyBinOp BinOp Exp Exp
            deriving (Eq, Show)
 
+instance NFData Exp where
+  rnf Zero = ()
+  rnf One = ()
+  rnf (Var k) = rnf k `seq` ()
+  rnf (If e0 e1 e2) = rnf e0 `seq` rnf e1 `seq` rnf e2 `seq` ()
+  rnf (ApplyFold e0 e1 e2) = rnf e0 `seq` rnf e1 `seq` rnf e2 `seq` ()
+  rnf (ApplyUnOp op e0) = rnf op `seq` rnf e0 `seq` ()
+  rnf (ApplyBinOp op e0 e1) = rnf op `seq` rnf e0 `seq` rnf e1 `seq` ()
+
 data UnOp = Not
           | Shl1
           | Shr1
@@ -50,15 +63,22 @@ data UnOp = Not
           | Shr16
             deriving (Eq, Ord, Show)
 
+instance NFData UnOp
+
 data BinOp = And
            | Or
            | Xor
            | Plus
              deriving (Eq, Ord, Show)
 
+instance NFData BinOp
+
 prettyPrint :: Program -> String
 prettyPrint (Program e) =
   "(lambda (" ++ ppId Arg ++ ") " ++ ppExp e ++ ")"
+prettyPrint (ProgramTFold e) =
+  "(lambda (" ++ ppId Byte ++ ") (fold " ++ ppId Byte ++
+  " 0 (lambda (" ++ ppId Byte ++ " " ++ ppId Acc ++ ") " ++ ppExp e ++ ")))"
 
 ppId :: Id -> String
 ppId Arg = "arg"
@@ -119,7 +139,16 @@ parseBV :: Parser Program
 parseBV = spaces *> parens body
   where body = do keyword "lambda"
                   arg <- parens parseName
-                  Program <$> parseExp (M.singleton arg Arg)
+                  (try (ProgramTFold <$> parseTFold arg) <|>
+                   Program <$> parseExp (M.singleton arg Arg))
+
+parseTFold :: String -> Parser Exp
+parseTFold arg =
+  parens $ keyword "fold" *> keyword arg *> token "0" *> parseFoldLambda
+  where parseFoldLambda = parens $ do
+          keyword "lambda"
+          acc <- parens $ token arg *> parseName
+          parseExp $ M.fromList [(arg, Byte), (acc, Acc)]
 
 parseExp :: M.Map String Id -> Parser Exp
 parseExp ns = token "0" *> pure Zero <|>
@@ -150,45 +179,55 @@ parseBinOp = keyword "and" *> pure And <|>
 runProgram :: Program -> Word64 -> Either String Word64
 runProgram (Program progbody) arg =
   runReaderT (evalExp progbody) $ M.singleton Arg arg
-  where evalExp One = return 1
-        evalExp Zero = return 0
-        evalExp (Var k) = do
-          x <- asks $ M.lookup k
-          case x of Nothing -> lift $ Left $ "Unbound variable " ++ ppId k
-                    Just x' -> return x'
-        evalExp (If c x y) = do
-          c' <- evalExp c
-          evalExp $ if c' == 0 then x else y
-        evalExp (ApplyFold inp inacc body) = do
-          inp' <- evalExp inp
-          inacc' <- evalExp inacc
-          let bytes = map ((.&. 0xFF) . (inp' `shiftR`))
-                      [0, 8, 16, 24, 32, 40, 48, 56]
-              comb accv bytev =
-                local (M.union (M.fromList [(Byte, bytev), (Acc, accv)])) $
-                  evalExp body
-          foldM comb inacc' bytes
-        evalExp (ApplyUnOp Not e) =
-          complement <$> evalExp e
-        evalExp (ApplyUnOp Shl1 e) =
-          (`shiftL` 1) <$> evalExp e
-        evalExp (ApplyUnOp Shr1 e) =
-          (`shiftR` 1) <$> evalExp e
-        evalExp (ApplyUnOp Shr4 e) =
-          (`shiftR` 4) <$> evalExp e
-        evalExp (ApplyUnOp Shr16 e) =
-          (`shiftR` 16) <$> evalExp e
-        evalExp (ApplyBinOp And e1 e2) =
-          pure (.&.) <*> evalExp e1 <*> evalExp e2
-        evalExp (ApplyBinOp Or e1 e2) =
-          pure (.|.) <*> evalExp e1 <*> evalExp e2
-        evalExp (ApplyBinOp Xor e1 e2) =
-          pure xor <*> evalExp e1 <*> evalExp e2
-        evalExp (ApplyBinOp Plus e1 e2) =
-          pure (+) <*> evalExp e1 <*> evalExp e2
+runProgram (ProgramTFold progbody) arg = do
+  let bytes = map ((.&. 0xFF) . (arg `shiftR`))
+              [0, 8, 16, 24, 32, 40, 48, 56]
+      comb accv bytev =
+        local (M.union (M.fromList [(Byte, bytev), (Acc, accv)])) $
+          evalExp progbody
+  runReaderT (foldM comb 0 bytes) $ M.singleton Arg arg
+
+evalExp :: Exp -> ReaderT (M.Map Id Word64) (Either String) Word64
+evalExp One = return 1
+evalExp Zero = return 0
+evalExp (Var k) = do
+  x <- asks $ M.lookup k
+  case x of Nothing -> lift $ Left $ "Unbound variable " ++ ppId k
+            Just x' -> return x'
+evalExp (If c x y) = do
+  c' <- evalExp c
+  evalExp $ if c' == 0 then x else y
+evalExp (ApplyFold inp inacc body) = do
+  inp' <- evalExp inp
+  inacc' <- evalExp inacc
+  let bytes = map ((.&. 0xFF) . (inp' `shiftR`))
+              [0, 8, 16, 24, 32, 40, 48, 56]
+      comb accv bytev =
+        local (M.union (M.fromList [(Byte, bytev), (Acc, accv)])) $
+          evalExp body
+  foldM comb inacc' bytes
+evalExp (ApplyUnOp Not e) =
+  complement <$> evalExp e
+evalExp (ApplyUnOp Shl1 e) =
+  (`shiftL` 1) <$> evalExp e
+evalExp (ApplyUnOp Shr1 e) =
+  (`shiftR` 1) <$> evalExp e
+evalExp (ApplyUnOp Shr4 e) =
+  (`shiftR` 4) <$> evalExp e
+evalExp (ApplyUnOp Shr16 e) =
+  (`shiftR` 16) <$> evalExp e
+evalExp (ApplyBinOp And e1 e2) =
+  pure (.&.) <*> evalExp e1 <*> evalExp e2
+evalExp (ApplyBinOp Or e1 e2) =
+  pure (.|.) <*> evalExp e1 <*> evalExp e2
+evalExp (ApplyBinOp Xor e1 e2) =
+  pure xor <*> evalExp e1 <*> evalExp e2
+evalExp (ApplyBinOp Plus e1 e2) =
+  pure (+) <*> evalExp e1 <*> evalExp e2
 
 progSize :: Program -> Int
 progSize (Program body) = 1 + expSize body
+progSize (ProgramTFold body) = 1 + 4 + expSize body
 
 expSize :: Exp -> Int
 expSize Zero = 1
@@ -216,6 +255,6 @@ expOperators (ApplyUnOp op e) = S.insert (UnOp op) $ expOperators e
 expOperators (ApplyBinOp op e0 e1) = S.insert (BinOp op) $ S.unions $ map expOperators [e0, e1]
 
 operators :: Program -> S.Set Ops
-operators (Program (ApplyFold (Var Arg) Zero e)) =
+operators (ProgramTFold e) =
   S.insert TFold (Fold `S.delete` expOperators e)
 operators (Program e) = expOperators e

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import os
 import sys
 import random
@@ -42,7 +43,8 @@ def get_problem(id):
 
 def unhex(t):
     return int(t[2:], 16)
-        
+
+pids = []
 def solve(auth, id):
     prob = get_problem(id)
     size = prob['size']
@@ -74,18 +76,44 @@ def solve(auth, id):
     troels.start()
     genetic.start()
 
+    raw_input()
+    for p in pids:
+        os.kill(pid, 9)
+    troels.terminate()
+    genetic.terminate()
+    
+    # timer = Process(target=timer_func)
+    # timer.start()
+
+def timer_func():
+    k = 10
+    t = 0
+    while True:
+        time.sleep(k)
+        t += k
+        print 'TIME', t
+
 def format_c_array(xs):
-    return '{' + ', '.join(xs) + '}'
+    return '{' + ', '.join(map(str, xs)) + '}'
     
 def run_genetic(auth, id, size, ops, arguments, outputs):
+    callback = lambda inp, outp: run_genetic(
+        auth, id, size, ops, arguments + [hex(inp)], outputs + [hex(outp)])
+    run_genetic1(auth, id, size, ops, arguments, outputs, callback)
+
+def run_genetic1(auth, id, size, ops, arguments, outputs, callback):
     ops = set(ops)
     if 'tfold' in ops:
-        ops.add('fold')
-        ops.remove('tfold')
+        ops.discard('fold')
+        ops.discard('arg')
+        ops.discard('tfold')
+        ops.add('acc')
+        ops.add('byte')
         extra = '#define TFOLD\n'
     else:
         extra = ''
     if 'fold' in ops:
+        ops.add('arg')
         ops.add('acc')
         ops.add('byte')
     ops.add('zero')
@@ -106,14 +134,23 @@ uint64_t test_results[] = %s;
     with open('src/data.h', 'w') as f:
         f.write(data)
     subprocess.Popen(['make', '-C', 'src'])
-    out = subprocess.Popen(['./src/genetic'], stdout=subprocess.PIPE).communicate()[0]
+    p = subprocess.Popen(['./src/genetic'], stdout=subprocess.PIPE)
+    pids.append(p.pid)
+    out = p.communicate()[0]
     prog = out.strip()
-    guess_program(auth, id, prog, 'GENERNE')
+    guess_program(auth, id, prog, 'GENERNE', callback)
 
 def run_troels(auth, id, size, ops, maps):
+    callback = lambda inp, outp: run_troels(auth, id, size, ops,
+                                           maps + [(inp, outp)])
+    run_troels1(auth, id, size, ops, maps, callback)
+
+def run_troels1(auth, id, size, ops, maps, callback):
     cmd = ['./src/Main', 'solve', str(size), str(ops).replace("'", '"'), str(maps).replace('L', '')]
     # print 'Command:', cmd
-    out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pids.append(p.pid)
+    out, err = p.communicate()
 
     out += err
     out = out.strip()
@@ -122,9 +159,10 @@ def run_troels(auth, id, size, ops, maps):
         print 'NO SOLUTION FOUND!  TIME IS RUNNING OUT!'
         return
     prog = out.strip()
-    guess_program(auth, id, prog, 'TROELS')
 
-def guess_program(auth, id, prog, source):
+    guess_program(auth, id, prog, 'TROELS', callback)
+
+def guess_program(auth, id, prog, source, expand_search):
     print 'Program found: ' + prog
     (t, d) = api.guess(auth, id, prog)
     if t == 'error':
@@ -138,7 +176,11 @@ def guess_program(auth, id, prog, source):
             print (source + ' WON! ') * 10
             with open('wins', 'w') as f:
                 f.write(id + '\n')
-            sys.exit()
+            
+        elif j['status'] == 'mismatch':
+            print 'MISMATCH.  REDOING.'
+            inp, chal_res, guess = j['values']
+            expand_search(unhex(inp.encode()), unhex(chal_res.encode()))
 
 def trainids():
     with open('src/myproblems_training.json') as f:
