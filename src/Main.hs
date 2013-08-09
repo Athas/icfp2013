@@ -104,9 +104,17 @@ main = do
     ["solve", sizestr, opsstr, iosstr] -> do
        case (reads sizestr, decode opsstr, reads iosstr) of
          ([(size, [])], Ok ops, [(ios, [])]) ->
-           case bruteForce size (M.fromList ios) (S.fromList ops) of
+           case filter (valid $ M.fromList ios) $ bruteForce size (S.fromList ops) of
              [] -> error "No solution found"
              prog:_ -> putStrLn $ prettyPrint prog
          (_, Error err, _) -> error err
          (_, _, _) -> error "Malformed input"
+    ["eval", progstr, inputstr] -> do
+       case (parseProgram progstr, reads inputstr) of
+         (Left err, _) -> error err
+         (Right prog, [(input, [])]) ->
+           case runProgram prog input of
+             Right v -> print v
+             Left err -> error err
+         (_, _) -> error "Invalid numeric input"
     _ -> error "Wrong options"
