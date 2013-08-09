@@ -420,7 +420,7 @@ int main() {
         }
       }
       for(n = 0; n < 32; n++) {
-        printf("%lu ", arena[n].fitness);
+        /* printf("%lu ", arena[n].fitness); */
       }
       printf("\n");
     }
