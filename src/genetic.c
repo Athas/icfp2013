@@ -333,6 +333,7 @@ static void update(prog_and_fitness *progs, int count) {
 
 int main() {
   int n, k;
+  time_t end;
 
   /* term_t foo[PROGSIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Arg, 0, 0, 0, Fold}; */
   /* printProg(foo); */
@@ -341,30 +342,35 @@ int main() {
 
   srand(time(NULL));
 
-  for(n = 0; n < arrlen(arena); n++) {
-    for(k = 0; k < PROGSIZE; k++) {
-      arena[n].prog[k] = ok[rand() % arrlen(ok)];
-      arena[n].fitness = 0;
-    }
-  }
-  update(arena, arrlen(arena));
 
   while(1) {
-    //    memcpy(&arena[arrlen(arena)-64], &arena[0], 64);
-    for(n = arrlen(arena); n > 256; n--) {
-      mate(&arena[n], &arena[rand() % n / 2]);
+    for(n = 0; n < arrlen(arena); n++) {
+      for(k = 0; k < PROGSIZE; k++) {
+        arena[n].prog[k] = ok[rand() % arrlen(ok)];
+        arena[n].fitness = 0;
+      }
     }
     update(arena, arrlen(arena));
-    for(n = arrlen(arena); n > 64; n--) {
-      mutate(&arena[n], n / 32);
-    }
-    update(arena, arrlen(arena));
-    /* for(n = 0; n < 32; n++) { */
-    /*   printf("%lu ", arena[n].fitness); */
-    /* } */
-    /* printf("\n"); */
-    if(arena[0].fitness == 0) {
-      break;
+    end = time(NULL) + RETRY_TIME;
+    while(time(NULL) < end) {
+      for(k = 0; k < 1024; k++) {
+        //    memcpy(&arena[arrlen(arena)-64], &arena[0], 64);
+        for(n = arrlen(arena); n > 256; n--) {
+          mate(&arena[n], &arena[rand() % n / 2]);
+        }
+        update(arena, arrlen(arena));
+        for(n = arrlen(arena); n > 64; n--) {
+          mutate(&arena[n], n / 32);
+        }
+        update(arena, arrlen(arena));
+        /* for(n = 0; n < 32; n++) { */
+        /*   printf("%lu ", arena[n].fitness); */
+        /* } */
+        /* printf("\n"); */
+        if(arena[0].fitness == 0) {
+          break;
+        }
+      }
     }
   }
   printProg(arena[0].prog);
