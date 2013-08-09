@@ -4,6 +4,9 @@
 #include <time.h>
 #include <string.h>
 
+#define FIT_BITDIST
+//#define FIT_NUMDIFF
+
 #define arrlen(x) (sizeof(x) / sizeof(x[0]))
 
 typedef enum _term_t {
@@ -264,6 +267,8 @@ static int typecheck(term_t *terms) {
   return status.type_error;
 }
 
+#ifdef FIT_NUMDIFF
+
 uint64_t fitness(term_t *terms) {
   int n;
   uint64_t fitness = 0, cur;
@@ -283,6 +288,34 @@ uint64_t fitness(term_t *terms) {
   }
   return fitness;
 }
+
+#else
+
+uint64_t fitness(term_t *terms) {
+
+  int n,i;
+  uint64_t fitness = 0, cur = 0, res;
+
+  for (n = 0; n < arrlen(test_values); n++) {
+    res = eval(terms, test_values[n]);
+    res = test_results[n] ^ res;
+
+    for (i = 0; i < 64; i++) {
+      cur += res >> i & 0x1;
+    }
+
+    if (fitness + cur < fitness) {
+      fitness = -1L;
+    } else {
+      fitness += cur;
+    }
+    /* printf("fitness: %d\n", fitness); */
+  }
+  return fitness;
+}
+
+#endif
+
 static void mutate(prog_and_fitness *terms, uint8_t chance) {
   int n;
 
