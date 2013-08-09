@@ -27,9 +27,10 @@ runBrute ops maxSize m = runReaderT m env
   where env = BruteEnv ops (S.singleton Arg) maxSize True
 
 hasFold :: BruteM a -> BruteM a
-hasFold = local (\env -> env { envOps = TFold `S.delete` (Fold `S.delete` envOps env)
-                             , envVars =  Byte `S.insert` (Acc `S.insert` envVars env)
-                             })
+hasFold = local (\env -> env { envOps = TFold `S.delete` (Fold `S.delete` envOps env) })
+
+inFold :: BruteM a -> BruteM a
+inFold = local (\env -> env { envVars =  Byte `S.insert` (Acc `S.insert` envVars env) })
 
 used :: Int -> BruteM a -> BruteM a
 used k = local (\env -> env { envRoom = envRoom env - k })
@@ -46,12 +47,14 @@ choice = lift
 valid :: M.Map Word64 Word64 -> Program -> Bool
 valid pairs prog = and [ x == output |
                          (input, output) <- M.toList pairs
-                       , let Right x = runProgram prog input ]
+                       , let x = case runProgram prog input of
+                                   Left err -> error $ "Execution failed with input " ++ show input ++ ": " ++ err
+                                   Right out -> out ]
 
 bruteForce :: Int -> M.Map Word64 Word64 -> S.Set Ops -> [Program]
 bruteForce size pairs ops = filter (valid pairs) $ runBrute ops size $ do
   if TFold `S.member` ops then do
-    body <- hasFold $ used 5 bruteExp
+    body <- hasFold $ inFold $ used 5 bruteExp
     return $ Program (ApplyFold (Var Arg) Zero body)
   else
     Program <$> used 1 bruteExp
@@ -84,7 +87,7 @@ bruteOp If0 = do
 bruteOp Fold = hasFold $ do
   e0 <- used 2 $ unfilling bruteExp
   e1 <- used (2+expSize e0) $ unfilling bruteExp
-  e2 <- used (2+expSize e0+expSize e1) $ filling bruteExp
+  e2 <- used (2+expSize e0+expSize e1) $ inFold $ filling bruteExp
   return $ ApplyFold e0 e1 e2
 bruteOp TFold = error "Unexpected TFold"
 
