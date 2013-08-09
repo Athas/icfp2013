@@ -21,6 +21,7 @@ def as_json(s):
 def as_error(s):
     return mark('error', s)
 
+TRYAGAIN = 429
 default_responses = {
     400: lambda: as_error('bad request'),
     401: lambda: as_error('problem was not requested by the current user'),
@@ -29,11 +30,17 @@ default_responses = {
     410: lambda: as_error('problem requested more than 5 minutes ago'),
     412: lambda: as_error('problem was already solved (by current user)'),
     413: lambda: as_error('request too big'),
-    429: lambda: as_error('try again later')
+    TRYAGAIN: lambda: as_error('try again later'),
 }
 
 def json_or_error(auth, path, body=None):
-    (code, text) = request(auth, path, body)
+    while True:
+        (code, text) = request(auth, path, body)
+        if code == TRYAGAIN:
+            print 'TRYING AGAIN in 5 seconds!'
+            time.sleep(5)
+        else:
+            break
     rets = {}
     rets[200] = lambda: as_json(text)
     rets.update(default_responses)
@@ -117,14 +124,17 @@ def run_main():
 
     try:
         args = sys.argv[2:]
-        (min_args, f) = {
-            'myproblems': (0, lambda: myproblems(auth)),
-            'eval': (2, lambda: eval(auth, *args)),
-            'evalprog': (2, lambda: evalprog(auth, *args)),
-            'guess': (2, lambda: guess(auth, args[0], args[1])),
-            'train': (0, lambda: train(auth, *args[0:2])),
-            'status': (0, lambda: status(auth))
-        }[sys.argv[1]]
+        try:
+            (min_args, f) = {
+                'myproblems': (0, lambda: myproblems(auth)),
+                'eval': (2, lambda: eval(auth, *args)),
+                'evalprog': (2, lambda: evalprog(auth, *args)),
+                'guess': (2, lambda: guess(auth, args[0], args[1])),
+                'train': (0, lambda: train(auth, *args[0:2])),
+                'status': (0, lambda: status(auth)),
+            }[sys.argv[1]]
+        except KeyError:
+            raise IndexError
         if min_args > len(args):
             raise IndexError
     except IndexError:
