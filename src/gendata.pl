@@ -38,12 +38,19 @@ my $operators = trim(`runhaskell Main.hs operators "$program"`);
 $operators =~ s/[^\w,]//g;
 $operators =~ s/(\w+)/\u$1/g;
 
+my $tfold = "";
+if ($operators =~ /Tfold/) {
+    $tfold = "#define TFOLD";
+    $operators =~ s/Tfold/Fold/g;
+}
+
 print $f <<EOF;
 #define PROGSIZE $progsize
 term_t ok[] = {$operators};
 uint64_t test_values[]  = {$values};
 uint64_t test_results[] = {$results};
 #define RETRY_TIME 10
+$tfold
 EOF
 
 close($f);
