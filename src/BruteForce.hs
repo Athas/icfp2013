@@ -17,14 +17,13 @@ import qualified Data.Set as S
 data BruteEnv = BruteEnv { envOps :: S.Set Ops
                          , envVars :: S.Set Id
                          , envRoom :: Int
-                         , envFilling :: Bool
                          }
 
 type BruteM = ReaderT BruteEnv []
 
 runBrute :: S.Set Ops -> Int -> BruteM a -> [a]
 runBrute ops maxSize m = runReaderT m env
-  where env = BruteEnv ops (S.singleton Arg) maxSize True
+  where env = BruteEnv ops (S.singleton Arg) maxSize
 
 hasFold :: BruteM a -> BruteM a
 hasFold = local (\env -> env { envOps = TFold `S.delete` (Fold `S.delete` envOps env) })
@@ -32,14 +31,12 @@ hasFold = local (\env -> env { envOps = TFold `S.delete` (Fold `S.delete` envOps
 inFold :: BruteM a -> BruteM a
 inFold = local (\env -> env { envVars =  Byte `S.insert` (Acc `S.insert` envVars env) })
 
-used :: Int -> BruteM a -> BruteM a
-used k = local (\env -> env { envRoom = envRoom env - k })
+used :: Int -> (Int -> BruteM a) -> BruteM a
+used k m = local (\env -> env { envRoom = envRoom env - k }) $
+           m =<< asks envRoom
 
-unfilling :: BruteM a -> BruteM a
-unfilling = local (\env -> env { envFilling = False })
-
-filling :: BruteM a -> BruteM a
-filling = local (\env -> env { envFilling = envFilling env && True })
+fill :: Int -> BruteM a -> BruteM a
+fill n = local (\env -> env { envRoom = n })
 
 choice :: [a] -> BruteM a
 choice = lift
@@ -47,39 +44,45 @@ choice = lift
 bruteForce :: Int -> S.Set Ops -> [Program]
 bruteForce size ops = runBrute ops size $
   if TFold `S.member` ops then do
-    body <- hasFold $ inFold $ used 5 bruteExp
+    body <- hasFold $ inFold $ used 5 $ const bruteExp
     return $ Program (ApplyFold (Var Arg) Zero body)
   else
-    Program <$> used 1 bruteExp
+    Program <$> used 1 (const bruteExp)
 
 bruteExp :: BruteM Exp
 bruteExp = do
   env <- ask
-  let leaves = Zero : One : map Var (S.toList (envVars env))
   case envRoom env of
     n | n < 1 -> choice []
-      | n == 1 -> choice leaves
+      | n == 1 -> choice $ Zero : One : map Var (S.toList (envVars env))
       | otherwise ->
-        let leaves' = if envFilling env then [] else leaves in
         case filter ((<=envRoom env) . minSize) $ S.toList $ envOps env of
-          [] -> choice leaves'
-          ops -> join $ choice (map return leaves' ++ map bruteOp ops)
+          ops -> join $ choice (map bruteOp ops)
 
 bruteOp :: Ops -> BruteM Exp
-bruteOp (UnOp op) = ApplyUnOp op <$> used 1 bruteExp
-bruteOp (BinOp op) = do
-  x <- used 1 $ unfilling bruteExp
-  y <- used (1+expSize x) $ filling bruteExp
+bruteOp (UnOp op) = used 1 $ \room ->
+  ApplyUnOp op <$> fill room bruteExp
+bruteOp (BinOp op) = used 1 $ \room -> do
+  xsize <- choice [1..room `div` 2]
+  ysize <- choice [room - xsize]
+  x <- fill xsize bruteExp
+  y <- fill ysize bruteExp
   return $ ApplyBinOp op x y
-bruteOp If0 = do
-  e0 <- used 1 $ unfilling bruteExp
-  e1 <- used (1+expSize e0) $ unfilling bruteExp
-  e2 <- used (1+expSize e0+expSize e1) $ filling bruteExp
+bruteOp If0 = used 1 $ \room -> do
+  e0size <- choice [1..room-2]
+  e1size <- choice [1..room-1-e0size]
+  e2size <- choice [1..room-e0size-e1size]
+  e0 <- fill e0size bruteExp
+  e1 <- fill e1size bruteExp
+  e2 <- fill e2size bruteExp
   return $ If e0 e1 e2
-bruteOp Fold = hasFold $ do
-  e0 <- used 2 $ unfilling bruteExp
-  e1 <- used (2+expSize e0) $ unfilling bruteExp
-  e2 <- used (2+expSize e0+expSize e1) $ inFold $ filling bruteExp
+bruteOp Fold = hasFold $ used 2 $ \room -> do
+  e0size <- choice [1..room-2]
+  e1size <- choice [1..room-1-e0size]
+  e2size <- choice [1..room-e0size-e1size]
+  e0 <- fill e0size $ bruteExp
+  e1 <- fill e1size bruteExp
+  e2 <- fill e2size $ inFold bruteExp
   return $ ApplyFold e0 e1 e2
 bruteOp TFold = error "Unexpected TFold"
 

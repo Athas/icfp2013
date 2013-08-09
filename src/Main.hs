@@ -3,7 +3,8 @@ module Main (main)
 where
 
 import BV
-import BruteForce
+import qualified BruteForce as TroelsForce
+import qualified DybberBruteForce as DybberForce
 
 import Control.Applicative
 
@@ -23,11 +24,11 @@ data TrainSet = TrainSet {
   }
                 deriving (Show)
 
-runTrainSet :: Int -> TrainSet -> String
-runTrainSet samples tset =
+runTrainSet :: (Int -> S.Set Ops -> [Program]) -> Int -> TrainSet -> String
+runTrainSet bf samples tset =
   "Testing " ++ show (trainId tset) ++ " of size " ++
   show (progSize (trainChallenge tset)) ++ ": " ++ prettyPrint (trainChallenge tset) ++ "\n" ++
-  case testBruteForce (trainChallenge tset) samples (trainSize tset) (trainOperators tset) of
+  case testBruteForce bf (trainChallenge tset) samples (trainSize tset) (trainOperators tset) of
     [] -> error $ "No solution found!\n"
     prog:_ -> "Found " ++ prettyPrint prog ++ "\n"
 
@@ -40,15 +41,16 @@ valid pairs prog = and [ x == output |
                                    Right out -> out ]
 
 
-testBruteForce :: Program -> Int -> Int -> S.Set Ops -> [Program]
-testBruteForce prog inputs maxSize ops =
+testBruteForce :: (Int -> S.Set Ops -> [Program])
+               -> Program -> Int -> Int -> S.Set Ops -> [Program]
+testBruteForce bf prog inputs maxSize ops =
   let pairs = M.fromList [ (input, case runProgram prog input of
                                      Left err -> error $ show err
                                      Right v -> v)
                            | input <- if inputs /= 0 then
                                         [0, maxBound `div` fromIntegral inputs .. maxBound ]
                                       else [] ]
-  in filter (valid pairs) $ bruteForce maxSize ops
+  in filter (valid pairs) $ bf maxSize ops
 
 instance JSON Ops where
   readJSON jsvalue = do
@@ -91,25 +93,36 @@ instance JSON TrainSet where
       (_, _, Nothing, _) -> fail "Missing operators field"
       (_, _, _, Nothing) -> fail "Missing challenge field"
 
+bruteForce :: (Int -> S.Set Ops -> [Program]) -> Int -> IO ()
+bruteForce bf n =
+  let procLine line = case decode line of
+                        Error err -> error $ "Invalid input line: " ++ err
+                        Ok v -> runTrainSet bf n v
+  in interact $ unlines . map procLine . lines
+
+solve :: (Int -> S.Set Ops -> [Program])
+      -> String -> String -> String -> IO ()
+solve bf sizestr opsstr iosstr =
+  case (reads sizestr, decode opsstr, reads iosstr) of
+    ([(size, [])], Ok ops, [(ios, [])]) ->
+      case filter (valid $ M.fromList ios) $ bf size (S.fromList ops) of
+        [] -> error "No solution found"
+        prog:_ -> putStrLn $ prettyPrint prog
+    (_, Error err, _) -> error err
+    (_, _, _) -> error "Malformed input"
+
 main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["bruteforce", n] ->
-      let procLine line = case decode line of
-                            Error err -> error $ "Invalid input line: " ++ err
-                            Ok v -> runTrainSet (read n) v
-      in interact $ unlines . map procLine . lines
+    ["bruteforce", n] -> bruteForce TroelsForce.bruteForce (read n)
+    ["dybberforce", n] -> bruteForce DybberForce.bruteForce (read n)
     -- Example:
     -- ./Main solve 11 '["shr1","shr4","shr16","or","tfold"]' '[(1,1),(2,2),(3,3)]'
-    ["solve", sizestr, opsstr, iosstr] -> do
-       case (reads sizestr, decode opsstr, reads iosstr) of
-         ([(size, [])], Ok ops, [(ios, [])]) ->
-           case filter (valid $ M.fromList ios) $ bruteForce size (S.fromList ops) of
-             [] -> error "No solution found"
-             prog:_ -> putStrLn $ prettyPrint prog
-         (_, Error err, _) -> error err
-         (_, _, _) -> error "Malformed input"
+    ["solve", sizestr, opsstr, iosstr] ->
+      solve TroelsForce.bruteForce sizestr opsstr iosstr
+    ["dybbersolve", sizestr, opsstr, iosstr] ->
+      solve DybberForce.bruteForce sizestr opsstr iosstr
     ["eval", progstr, inputstr] -> do
        case (parseProgram progstr, reads inputstr) of
          (Left err, _) -> error err
