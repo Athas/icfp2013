@@ -115,7 +115,7 @@ main = do
          (Left err, _) -> error err
          (Right prog, [(input, [])]) ->
            case runProgram prog input of
-             Right v -> printf "0x%x" v
+             Right v -> printf "0x%x\n" v
              Left err -> error err
          (_, _) -> error "Invalid numeric input"
     _ -> error "Wrong options"
