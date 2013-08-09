@@ -4,8 +4,8 @@
 #include <time.h>
 #include <string.h>
 
-#define FIT_BITDIST
-//#define FIT_NUMDIFF
+//#define FIT_BITDIST
+#define FIT_NUMDIFF
 
 #define arrlen(x) (sizeof(x) / sizeof(x[0]))
 
@@ -320,7 +320,11 @@ uint64_t fitness(term_t *terms) {
 static void mutate(prog_and_fitness *terms, uint8_t chance) {
   int n;
 
+#ifdef TFOLD
+  for(n = 0; n < PROGSIZE-3; n++) {
+#else
   for(n = 0; n < PROGSIZE; n++) {
+#endif
     if((rand()&0xff) < chance) {
       terms->prog[n] = ok[rand() % arrlen(ok)];
     }
@@ -330,7 +334,11 @@ static void mutate(prog_and_fitness *terms, uint8_t chance) {
 static void mate(prog_and_fitness *dst, prog_and_fitness *src) {
   int n;
 
+#ifdef TFOLD
+  for(n = 0; n < PROGSIZE-3; n++) {
+#else
   for(n = 0; n < PROGSIZE; n++) {
+#endif
     if(rand()&1) {
       dst->prog[n] = src->prog[n];
       dst->fitness = 0;
@@ -354,11 +362,6 @@ static void update(prog_and_fitness *progs, int count) {
   int n;
 
   for(n = 0; n < count; n++) {
-#ifdef TFOLD
-      progs[n].prog[PROGSIZE-1] = Fold;
-      progs[n].prog[PROGSIZE-2] = Arg;
-      progs[n].prog[PROGSIZE-3] = Zero;
-#endif
     if(progs[n].fitness == 0) {
       if(typecheck(progs[n].prog) != 0) {
         progs[n].fitness = -1L;
@@ -384,7 +387,14 @@ int main() {
 
   while(1) {
     for(n = 0; n < arrlen(arena); n++) {
+#ifdef TFOLD
+      arena[n].prog[PROGSIZE-1] = Fold;
+      arena[n].prog[PROGSIZE-2] = Arg;
+      arena[n].prog[PROGSIZE-3] = Zero;
+      for(k = 0; k < PROGSIZE-3; k++) {
+#else
       for(k = 0; k < PROGSIZE; k++) {
+#endif
         arena[n].prog[k] = ok[rand() % arrlen(ok)];
       }
       arena[n].fitness = 0;
