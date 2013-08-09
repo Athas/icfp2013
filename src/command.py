@@ -78,8 +78,12 @@ def solve(auth, id):
         print 'GUESSING WENT WRONG!  TIME IS RUNNING OUT!'
         return
     elif t == 'json':
+        print d
         j = json.loads(d)
-        print d, j
+        if j['status'] == 'win':
+            print 'YOU WON! ' * 10
+            with open('wins', 'w') as f:
+                f.write(id + '\n')
 
 def print_help():
     print '''usage: ./command.py COMMAND [ARGS] -> STATUS
