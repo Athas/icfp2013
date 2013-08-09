@@ -12,6 +12,7 @@ import qualified Data.Set as S
 
 import Data.Word
 import System.Environment
+import Text.Printf
 import Text.JSON
 
 data TrainSet = TrainSet {
@@ -114,7 +115,7 @@ main = do
          (Left err, _) -> error err
          (Right prog, [(input, [])]) ->
            case runProgram prog input of
-             Right v -> print v
+             Right v -> printf "0x%x" v
              Left err -> error err
          (_, _) -> error "Invalid numeric input"
     _ -> error "Wrong options"
