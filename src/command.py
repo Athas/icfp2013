@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import os
 import sys
 import random
@@ -95,9 +96,9 @@ def run_genetic(auth, id, size, ops, arguments, outputs):
 def run_genetic1(auth, id, size, ops, arguments, outputs, callback):
     ops = set(ops)
     if 'tfold' in ops:
-        ops.remove('fold')
-        ops.remove('arg')
-        ops.remove('tfold')
+        ops.discard('fold')
+        ops.discard('arg')
+        ops.discard('tfold')
         ops.add('acc')
         ops.add('byte')
         extra = '#define TFOLD\n'
