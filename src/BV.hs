@@ -156,7 +156,7 @@ runProgram (Program progbody) arg =
                     Just x' -> return x'
         evalExp (If c x y) = do
           c' <- evalExp c
-          evalExp $ if c' /= 0 then x else y
+          evalExp $ if c' == 0 then x else y
         evalExp (ApplyFold inp inacc body) = do
           inp' <- evalExp inp
           inacc' <- evalExp inacc
@@ -202,7 +202,7 @@ data Ops = UnOp UnOp
          | Fold
          | TFold
          | If0
-           deriving (Eq, Ord)
+           deriving (Eq, Ord, Show)
 
 expOperators :: Exp -> S.Set Ops
 expOperators Zero = S.empty
