@@ -43,7 +43,7 @@ def myproblems(auth):
 
 def make_eval_json(id, program, *arguments):
     j = {}
-    j['id'] = int(id)
+    j['id'] = id
     j['program'] = program
     j['arguments'] = json.loads(arguments)
     return json.dumps(j)
@@ -54,7 +54,7 @@ def eval(auth, *args):
 
 def make_guess_json(id, program):
     j = {}
-    j['id'] = int(id)
+    j['id'] = id
     j['program'] = program
     return json.dumps(j)
 
