@@ -5,7 +5,6 @@
 #include <string.h>
 
 #define arrlen(x) (sizeof(x) / sizeof(x[0]))
-#define PROGSIZE 15
 
 typedef enum _term_t {
   Zero,
@@ -27,9 +26,7 @@ typedef enum _term_t {
 } term_t;
 #define TERM_TYPES 16
 
-term_t ok[] = {Zero, One, Arg, If, Not, Or, Plus, Shr16, Xor};
-uint64_t test_values[]  = {0, 0x100, 0x1234, 0x1234123412341234, 0x1234123412343333, 0x4444123412343333};
-uint64_t test_results[] = {1, 0x1,   1,      0x246824682469,     0x246824682469,     0x888824682469};
+#include "data.h"
 
 typedef struct _prog_and_fitness {
   term_t prog[PROGSIZE];
@@ -353,19 +350,19 @@ int main() {
   update(arena, arrlen(arena));
 
   while(1) {
-    memcpy(&arena[arrlen(arena)-64], &arena[0], 64);
+    //    memcpy(&arena[arrlen(arena)-64], &arena[0], 64);
     for(n = arrlen(arena); n > 256; n--) {
-      mate(&arena[n], &arena[rand() % n]);
+      mate(&arena[n], &arena[rand() % n / 2]);
     }
     update(arena, arrlen(arena));
     for(n = arrlen(arena); n > 64; n--) {
       mutate(&arena[n], n / 32);
     }
     update(arena, arrlen(arena));
-    for(n = 0; n < 32; n++) {
-      printf("%lu ", arena[n].fitness);
-    }
-    printf("\n");
+    /* for(n = 0; n < 32; n++) { */
+    /*   printf("%lu ", arena[n].fitness); */
+    /* } */
+    /* printf("\n"); */
     if(arena[0].fitness == 0) {
       break;
     }
