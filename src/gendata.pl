@@ -44,6 +44,8 @@ if ($operators =~ /Tfold/) {
     $operators =~ s/Tfold/Fold/g;
 }
 
+$operators =~ s/Fold/Fold,Acc,Byte/g;
+
 print $f <<EOF;
 #define PROGSIZE $progsize
 term_t ok[] = {$operators};
