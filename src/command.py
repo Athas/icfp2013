@@ -20,7 +20,13 @@ problems = load_problems('src/myproblems.json')
 problems_training = load_problems('src/myproblems_training.json')
 
 def get_inputs(ops):
-    return random.sample(xrange(0, 2**63 - 1), 2)
+    # if 'tfold' in ops:
+    return map(lambda x: x + 2**6 - 1, random.sample(xrange(0, 2**63 - 1), 128)) + random.sample(xrange(0, 2**63 - 1), 128)
+    # else:
+    #     return random.sample(xrange(0, 256), 64) \
+    #         + random.sample(xrange(2**64 - 256, 2**64), 64) \
+    #         + random.sample(xrange(256, 2**63), 64) \
+    #         + map(lambda x: x + 2**63 - 256, random.sample(xrange(256, 2**63), 64))
 
 def get_problem(id):
     try:
@@ -54,8 +60,9 @@ def solve(auth, id):
             outputs.extend(j['outputs'])
 
     maps = zip(map(unhex, arguments), map(unhex, outputs))
-    out, err = subprocess.Popen(['./src/Main', 'solve', str(size), str(ops).replace("'", '"'), str(maps)],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    cmd = ['./src/Main', 'solve', str(size), str(ops).replace("'", '"'), str(maps).replace('L', '')]
+    print 'Command:', cmd
+    out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 
     out += err
     out = out.strip()
@@ -70,7 +77,9 @@ def solve(auth, id):
         api.error(d)
         print 'GUESSING WENT WRONG!  TIME IS RUNNING OUT!'
         return
-    print d
+    elif t == 'json':
+        j = json.loads(d)
+        print d, j
 
 def print_help():
     print '''usage: ./command.py COMMAND [ARGS] -> STATUS
