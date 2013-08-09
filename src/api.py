@@ -50,7 +50,7 @@ def make_eval_json(id, program, *arguments):
 
 def eval(auth, *args):
     return as_error('DISABLED')
-#    return json_or_error(auth, 'eval', make_eval_json(*args))
+    return json_or_error(auth, 'eval', make_eval_json(*args))
 
 def make_guess_json(id, program):
     j = {}
@@ -60,7 +60,7 @@ def make_guess_json(id, program):
 
 def guess(auth, *args):
     return as_error('DISABLED')
-#    return json_or_error(auth, 'guess', make_guess_json(*args))
+    return json_or_error(auth, 'guess', make_guess_json(*args))
 
 def make_train_json(size=None, operators=None):
     j = {}
