@@ -16,7 +16,9 @@ def generate_train():
 def generate_trains():
     while True:
         for i in range(0, 5):
-            print generate_train()
+            t = generate_train()
+            if t is not None:
+                print t
         time.sleep(21)
 
 if __name__ == '__main__':
