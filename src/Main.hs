@@ -98,6 +98,7 @@ instance JSON TrainSet where
       (_, Nothing, _, _) -> fail "Missing size field"
       (_, _, Nothing, _) -> fail "Missing operators field"
       (_, _, _, Nothing) -> fail "Missing challenge field"
+  showJSON = undefined
 
 bruteForce :: (Int -> S.Set Ops -> [Program]) -> Int -> IO ()
 bruteForce bf n =
