@@ -71,15 +71,25 @@ def solve(auth, id):
 
     troels = Process(target=run_troels, args=(auth, id, size, ops, maps))
     genetic = Process(target=run_genetic, args=(auth, id, size, ops, arguments, outputs))
+    timer = Process(target=timer_func)
     troels.start()
     genetic.start()
+    timer.start()
+
+def timer_func():
+    k = 10
+    t = 0
+    while True:
+        time.sleep(k)
+        t += k
+        print 'TIME', t
 
 def format_c_array(xs):
-    return '{' + ', '.join(xs) + '}'
+    return '{' + ', '.join(map(str, xs)) + '}'
     
 def run_genetic(auth, id, size, ops, arguments, outputs):
     callback = lambda inp, outp: run_genetic(
-        auth, id, size, ops, list(set(arguments + inp)), list(set(outputs + outp)))
+        auth, id, size, ops, arguments + [hex(inp)], outputs + [hex(outp)])
     run_genetic1(auth, id, size, ops, arguments, outputs, callback)
 
 def run_genetic1(auth, id, size, ops, arguments, outputs, callback):
@@ -121,7 +131,7 @@ uint64_t test_results[] = %s;
 
 def run_troels(auth, id, size, ops, maps):
     callback = lambda inp, outp: run_troels(auth, id, size, ops,
-                                           list(set(maps + [(inp, outp)])))
+                                           maps + [(inp, outp)])
     run_troels1(auth, id, size, ops, maps, callback)
 
 def run_troels1(auth, id, size, ops, maps, callback):
@@ -157,7 +167,7 @@ def guess_program(auth, id, prog, source, expand_search):
         elif j['status'] == 'mismatch':
             print 'MISMATCH.  REDOING.'
             inp, chal_res, guess = j['values']
-            expand_search(inp, chal_res)
+            expand_search(unhex(inp.encode()), unhex(chal_res.encode()))
 
 def trainids():
     with open('src/myproblems_training.json') as f:
