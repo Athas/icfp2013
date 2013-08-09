@@ -46,18 +46,20 @@ my $results = join(', ', @ress);
 my $operators = trim(`$exe operators "$program"`);
 $operators =~ s/[^\w,]//g;
 $operators =~ s/(\w+)/\u$1/g;
+$operators .= ",Arg";
 
 my $tfold = "";
 if ($operators =~ /Tfold/) {
     $tfold = "#define TFOLD";
-    $operators =~ s/Tfold/Fold/g;
+    $operators =~ s/Tfold/Acc,Byte/g;
+    $operators =~ s/,Arg//g;
 }
 
 $operators =~ s/Fold/Fold,Acc,Byte/g;
 
 print $f <<EOF;
 #define PROGSIZE $progsize
-term_t ok[] = {Zero,One,Arg,$operators};
+term_t ok[] = {Zero,One,$operators};
 uint64_t test_values[]  = {$values};
 uint64_t test_results[] = {$results};
 #define RETRY_TIME 10
