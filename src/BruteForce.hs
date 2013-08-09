@@ -26,8 +26,10 @@ runBrute :: S.Set Ops -> Int -> BruteM a -> [a]
 runBrute ops maxSize m = runReaderT m env
   where env = BruteEnv ops (S.singleton Arg) maxSize True
 
-unOp :: Ops -> BruteM a -> BruteM a
-unOp op = local (\env -> env { envOps = op `S.delete` envOps env })
+hasFold :: BruteM a -> BruteM a
+hasFold = local (\env -> env { envOps = TFold `S.delete` (Fold `S.delete` envOps env)
+                             , envVars =  Byte `S.insert` (Acc `S.insert` envVars env)
+                             })
 
 used :: Int -> BruteM a -> BruteM a
 used k = local (\env -> env { envRoom = envRoom env - k })
@@ -49,7 +51,7 @@ valid pairs prog = and [ x == output |
 bruteForce :: Int -> M.Map Word64 Word64 -> S.Set Ops -> [Program]
 bruteForce size pairs ops = filter (valid pairs) $ runBrute ops size $ do
   if TFold `S.member` ops then do
-    body <- unOp TFold $ used 4 bruteExp
+    body <- hasFold $ used 5 bruteExp
     return $ Program (ApplyFold (Var Arg) Zero body)
   else
     Program <$> used 1 bruteExp
@@ -79,6 +81,12 @@ bruteOp If0 = do
   e1 <- used (1+expSize e0) $ unfilling bruteExp
   e2 <- used (1+expSize e0+expSize e1) $ filling bruteExp
   return $ If e0 e1 e2
+bruteOp Fold = hasFold $ do
+  e0 <- used 2 $ unfilling bruteExp
+  e1 <- used (2+expSize e0) $ unfilling bruteExp
+  e2 <- used (2+expSize e0+expSize e1) $ filling bruteExp
+  return $ ApplyFold e0 e1 e2
+bruteOp TFold = error "Unexpected TFold"
 
 minSize :: Ops -> Int
 minSize (UnOp _) = 2
