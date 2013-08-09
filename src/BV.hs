@@ -8,6 +8,7 @@ module BV
   , parseProgram
   , runProgram
   , progSize
+  , Ops(..)
   , expOperators
   , operators
   )
@@ -32,20 +33,22 @@ data Exp = Zero
          | One
          | Var Id
          | If Exp Exp Exp
-         | Fold Exp Exp ((Id, Id), Exp)
-         | UnOp UnOp Exp
-         | BinOp BinOp Exp Exp
+         | ApplyFold Exp Exp ((Id, Id), Exp)
+         | ApplyUnOp UnOp Exp
+         | ApplyBinOp BinOp Exp Exp
 
 data UnOp = Not
           | Shl1
           | Shr1
           | Shr4
           | Shr16
+            deriving (Eq, Ord)
 
 data BinOp = And
            | Or
            | Xor
            | Plus
+             deriving (Eq, Ord)
 
 prettyPrint :: Program -> String
 prettyPrint (Program k e) =
@@ -57,11 +60,11 @@ ppExp One = "1"
 ppExp (Var k) = k
 ppExp (If e1 e2 e3) =
   "(if0 " ++ ppExp e1 ++ " " ++ ppExp e2 ++ " " ++ ppExp e3 ++ ")"
-ppExp (Fold e1 e2 ((k1, k2), e3)) =
+ppExp (ApplyFold e1 e2 ((k1, k2), e3)) =
     "(fold " ++ ppExp e1 ++ " " ++ ppExp e2 ++
     " (" ++ k1 ++ " " ++ k2 ++ ") " ++ ppExp e3 ++ ")"
-ppExp (UnOp op e) = "(" ++ ppUnOp op ++ " " ++ ppExp e ++ ")"
-ppExp (BinOp op e1 e2) =
+ppExp (ApplyUnOp op e) = "(" ++ ppUnOp op ++ " " ++ ppExp e ++ ")"
+ppExp (ApplyBinOp op e1 e2) =
     "(" ++ ppBinOp op ++ " " ++ ppExp e1 ++ " " ++ ppExp e2 ++ ")"
 
 ppUnOp :: UnOp -> String
@@ -106,9 +109,9 @@ parseExp = token "0" *> pure Zero <|>
            token "1" *> pure One <|>
            Var <$> parseId <|>
            parens (keyword "if0" *> pure If <*> parseExp <*> parseExp <*> parseExp <|>
-                   keyword "fold" *> pure Fold <*> parseExp <*> parseExp <*> parens (keyword "lambda" *> pure (,) <*> parens (pure (,) <*> parseId <*> parseId) <*> parseExp) <|>
-                   pure UnOp <*> parseUnOp <*> parseExp <|>
-                   pure BinOp <*> parseBinOp <*> parseExp <*> parseExp)
+                   keyword "fold" *> pure ApplyFold <*> parseExp <*> parseExp <*> parens (keyword "lambda" *> pure (,) <*> parens (pure (,) <*> parseId <*> parseId) <*> parseExp) <|>
+                   pure ApplyUnOp <*> parseUnOp <*> parseExp <|>
+                   pure ApplyBinOp <*> parseBinOp <*> parseExp <*> parseExp)
 
 parseUnOp :: Parser UnOp
 parseUnOp = keyword "not" *> pure Not <|>
@@ -135,7 +138,7 @@ runProgram (Program k0 progbody) arg =
         evalExp (If c x y) = do
           c' <- evalExp c
           evalExp $ if c' /= 0 then x else y
-        evalExp (Fold inp inacc ((byte, acc), body)) = do
+        evalExp (ApplyFold inp inacc ((byte, acc), body)) = do
           inp' <- evalExp inp
           inacc' <- evalExp inacc
           let bytes = map ((.&. 0xFF) . (inp' `shiftR`))
@@ -144,23 +147,23 @@ runProgram (Program k0 progbody) arg =
                 local (M.union (M.fromList [(byte, bytev), (acc, accv)])) $
                   evalExp body
           foldM comb inacc' bytes
-        evalExp (UnOp Not e) =
+        evalExp (ApplyUnOp Not e) =
           complement <$> evalExp e
-        evalExp (UnOp Shl1 e) =
+        evalExp (ApplyUnOp Shl1 e) =
           (`shiftL` 1) <$> evalExp e
-        evalExp (UnOp Shr1 e) =
+        evalExp (ApplyUnOp Shr1 e) =
           (`shiftR` 1) <$> evalExp e
-        evalExp (UnOp Shr4 e) =
+        evalExp (ApplyUnOp Shr4 e) =
           (`shiftR` 4) <$> evalExp e
-        evalExp (UnOp Shr16 e) =
+        evalExp (ApplyUnOp Shr16 e) =
           (`shiftR` 16) <$> evalExp e
-        evalExp (BinOp And e1 e2) =
+        evalExp (ApplyBinOp And e1 e2) =
           pure (.&.) <*> evalExp e1 <*> evalExp e2
-        evalExp (BinOp Or e1 e2) =
+        evalExp (ApplyBinOp Or e1 e2) =
           pure (.|.) <*> evalExp e1 <*> evalExp e2
-        evalExp (BinOp Xor e1 e2) =
+        evalExp (ApplyBinOp Xor e1 e2) =
           pure xor <*> evalExp e1 <*> evalExp e2
-        evalExp (BinOp Plus e1 e2) =
+        evalExp (ApplyBinOp Plus e1 e2) =
           pure (+) <*> evalExp e1 <*> evalExp e2
 
 progSize :: Program -> Int
@@ -169,20 +172,27 @@ progSize (Program _ body) = 1 + expSize body
         expSize One = 1
         expSize (Var _) = 1
         expSize (If e0 e1 e2) = 1 + expSize e0 + expSize e1 + expSize e2
-        expSize (Fold e0 e1 ((_, _), e2)) = 2 + expSize e0 + expSize e1 + expSize e2
-        expSize (UnOp _ e0) = 1 + expSize e0
-        expSize (BinOp _ e0 e1) = 1 + expSize e0 + expSize e1
+        expSize (ApplyFold e0 e1 ((_, _), e2)) = 2 + expSize e0 + expSize e1 + expSize e2
+        expSize (ApplyUnOp _ e0) = 1 + expSize e0
+        expSize (ApplyBinOp _ e0 e1) = 1 + expSize e0 + expSize e1
 
-expOperators :: Exp -> S.Set String
+data Ops = UnOp UnOp
+         | BinOp BinOp
+         | Fold
+         | TFold
+         | If0
+           deriving (Eq, Ord)
+
+expOperators :: Exp -> S.Set Ops
 expOperators Zero = S.empty
 expOperators One = S.empty
 expOperators (Var _) = S.empty
-expOperators (If e0 e1 e2) = S.insert "if0" $ S.unions $ map expOperators [e0, e1, e2]
-expOperators (Fold e0 e1 ((_,_), e2)) = S.insert "fold" $ S.unions $ map expOperators [e0, e1, e2]
-expOperators (UnOp op e) = S.insert (ppUnOp op) $ expOperators e
-expOperators (BinOp op e0 e1) = S.insert (ppBinOp op) $ S.unions $ map expOperators [e0, e1]
+expOperators (If e0 e1 e2) = S.insert If0 $ S.unions $ map expOperators [e0, e1, e2]
+expOperators (ApplyFold e0 e1 ((_,_), e2)) = S.insert Fold $ S.unions $ map expOperators [e0, e1, e2]
+expOperators (ApplyUnOp op e) = S.insert (UnOp op) $ expOperators e
+expOperators (ApplyBinOp op e0 e1) = S.insert (BinOp op) $ S.unions $ map expOperators [e0, e1]
 
-operators :: Program -> S.Set String
-operators (Program x (Fold (Var k) Zero ((_,_), e)))
-  | x == k = S.insert "tfold" (expOperators e)
+operators :: Program -> S.Set Ops
+operators (Program x (ApplyFold (Var k) Zero ((_,_), e)))
+  | x == k = S.insert TFold (expOperators e)
 operators (Program _ e) = expOperators e
