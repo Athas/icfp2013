@@ -10,6 +10,7 @@ import Control.Applicative
 import qualified Data.Map as M
 import qualified Data.Set as S
 
+import Data.Word
 import System.Environment
 import Text.JSON
 
@@ -29,15 +30,24 @@ runTrainSet samples tset =
     [] -> "No solution found!\n"
     prog:_ -> "Found " ++ prettyPrint prog ++ "\n"
 
+
+valid :: M.Map Word64 Word64 -> Program -> Bool
+valid pairs prog = and [ x == output |
+                         (input, output) <- M.toList pairs
+                       , let x = case runProgram prog input of
+                                   Left err -> error $ "Execution failed with input " ++ show input ++ ": " ++ err
+                                   Right out -> out ]
+
+
 testBruteForce :: Program -> Int -> Int -> S.Set Ops -> [Program]
 testBruteForce prog inputs maxSize ops =
-  let m = M.fromList [ (input, case runProgram prog input of
-                                 Left err -> error $ show err
-                                 Right v -> v)
-                       | input <- if inputs /= 0 then
-                                    [0, maxBound `div` fromIntegral inputs .. maxBound ]
-                                  else [] ]
-  in bruteForce maxSize m ops
+  let pairs = M.fromList [ (input, case runProgram prog input of
+                                     Left err -> error $ show err
+                                     Right v -> v)
+                           | input <- if inputs /= 0 then
+                                        [0, maxBound `div` fromIntegral inputs .. maxBound ]
+                                      else [] ]
+  in filter (valid pairs) $ bruteForce maxSize ops
 
 instance JSON Ops where
   readJSON jsvalue = do

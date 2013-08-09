@@ -44,15 +44,8 @@ filling = local (\env -> env { envFilling = envFilling env && True })
 choice :: [a] -> BruteM a
 choice = lift
 
-valid :: M.Map Word64 Word64 -> Program -> Bool
-valid pairs prog = and [ x == output |
-                         (input, output) <- M.toList pairs
-                       , let x = case runProgram prog input of
-                                   Left err -> error $ "Execution failed with input " ++ show input ++ ": " ++ err
-                                   Right out -> out ]
-
-bruteForce :: Int -> M.Map Word64 Word64 -> S.Set Ops -> [Program]
-bruteForce size pairs ops = filter (valid pairs) $ runBrute ops size $
+bruteForce :: Int -> S.Set Ops -> [Program]
+bruteForce size ops = runBrute ops size $
   if TFold `S.member` ops then do
     body <- hasFold $ inFold $ used 5 bruteExp
     return $ Program (ApplyFold (Var Arg) Zero body)
