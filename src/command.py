@@ -78,14 +78,23 @@ def format_c_array(xs):
     return '{' + ', '.join(xs) + '}'
     
 def run_genetic(auth, id, size, ops, arguments, outputs):
+    callback = lambda inp outp: run_genetic(
+        auth, id, size, ops, arguments + inp, outputs + outp)
+    run_genetic1(auth, id, size, ops, arguments, outputs, callback)
+
+def run_genetic1(auth, id, size, ops, arguments, outputs, callback):
     ops = set(ops)
     if 'tfold' in ops:
-        ops.add('fold')
+        ops.remove('fold')
+        ops.remove('arg')
         ops.remove('tfold')
+        ops.add('acc')
+        ops.add('byte')
         extra = '#define TFOLD\n'
     else:
         extra = ''
     if 'fold' in ops:
+        ops.add('arg')
         ops.add('acc')
         ops.add('byte')
     ops.add('zero')
@@ -108,9 +117,14 @@ uint64_t test_results[] = %s;
     subprocess.Popen(['make', '-C', 'src'])
     out = subprocess.Popen(['./src/genetic'], stdout=subprocess.PIPE).communicate()[0]
     prog = out.strip()
-    guess_program(auth, id, prog, 'GENERNE')
+    guess_program(auth, id, prog, 'GENERNE', callback)
 
 def run_troels(auth, id, size, ops, maps):
+    callback = lambda inp outp: run_troels(auth, id, size, ops,
+                                           maps + [(inp, outp)])
+    run_troels1(auth, id, size, ops, maps, callback)
+
+def run_troels1(auth, id, size, ops, maps, callback):
     cmd = ['./src/Main', 'solve', str(size), str(ops).replace("'", '"'), str(maps).replace('L', '')]
     # print 'Command:', cmd
     out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -122,9 +136,10 @@ def run_troels(auth, id, size, ops, maps):
         print 'NO SOLUTION FOUND!  TIME IS RUNNING OUT!'
         return
     prog = out.strip()
-    guess_program(auth, id, prog, 'TROELS')
 
-def guess_program(auth, id, prog, source):
+    guess_program(auth, id, prog, 'TROELS', callback)
+
+def guess_program(auth, id, prog, source, expand_search):
     print 'Program found: ' + prog
     (t, d) = api.guess(auth, id, prog)
     if t == 'error':
@@ -139,6 +154,10 @@ def guess_program(auth, id, prog, source):
             with open('wins', 'w') as f:
                 f.write(id + '\n')
             sys.exit()
+        elif j['status'] == 'mismatch':
+            print 'MISMATCH.  REDOING.'
+            inp, chal_res, guess = j['values']
+            expand_search(inp, chal_res)
 
 def trainids():
     with open('src/myproblems_training.json') as f:
