@@ -52,7 +52,7 @@ ppExp Zero = "0"
 ppExp One = "1"
 ppExp (Var k) = k
 ppExp (If e1 e2 e3) =
-  "(if " ++ ppExp e1 ++ " " ++ ppExp e2 ++ " " ++ ppExp e3 ++ ")"
+  "(if0 " ++ ppExp e1 ++ " " ++ ppExp e2 ++ " " ++ ppExp e3 ++ ")"
 ppExp (Fold e1 e2 ((k1, k2), e3)) =
     "(fold " ++ ppExp e1 ++ " " ++ ppExp e2 ++
     " (" ++ k1 ++ " " ++ k2 ++ ") " ++ ppExp e3 ++ ")"
@@ -95,7 +95,7 @@ parseExp :: Parser Exp
 parseExp = token "0" *> pure Zero <|>
            token "1" *> pure One <|>
            Var <$> parseId <|>
-           parens (token "if" *> pure If <*> parseExp <*> parseExp <*> parseExp <|>
+           parens (token "if0" *> pure If <*> parseExp <*> parseExp <*> parseExp <|>
                    token "fold" *> pure Fold <*> parseExp <*> parseExp <*> parens (token "lambda" *> pure (,) <*> parens (pure (,) <*> parseId <*> parseId) <*> parseExp) <|>
                    pure UnOp <*> parseUnOp <*> parseExp <|>
                    pure BinOp <*> parseBinOp <*> parseExp <*> parseExp)
