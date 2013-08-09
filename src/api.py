@@ -9,10 +9,11 @@ base_url = "http://icfpc2013.cloudapp.net/"
 def request(auth, path, body=None):
     url = base_url + path + "?auth=" + auth + "vpsH1H"
     r = urllib.urlopen(url, body)
-    return (r.getcode(), r.read())
+    d = r.read()
+    return (r.getcode(), d)
 
 def mark(m, s):
-    return m + '\n' + s
+    return (m, s)
 
 def as_json(s):
     return mark('json', s)
@@ -100,12 +101,17 @@ Commands:
   status\
 '''
 
-def run_main():
+def get_authkey():
     try:
         with open('authkey') as f:
             auth = f.read().strip()
+        return auth
     except IOError:
         error("missing 'authkey' file'")
+    
+def run_main():
+    auth = get_authkey()
+    if auth is None:
         print_help()
         return
 
@@ -125,7 +131,8 @@ def run_main():
         print_help()
         return
 
-    print f()
+    (t, d) = f()
+    print t + '\n' + d
 
 if __name__ == '__main__':
     run_main()
