@@ -79,7 +79,7 @@ def format_c_array(xs):
     
 def run_genetic(auth, id, size, ops, arguments, outputs):
     callback = lambda inp outp: run_genetic(
-        auth, id, size, ops, arguments + inp, outputs + outp)
+        auth, id, size, ops, list(set(arguments + inp)), list(set(outputs + outp)))
     run_genetic1(auth, id, size, ops, arguments, outputs, callback)
 
 def run_genetic1(auth, id, size, ops, arguments, outputs, callback):
@@ -121,7 +121,7 @@ uint64_t test_results[] = %s;
 
 def run_troels(auth, id, size, ops, maps):
     callback = lambda inp outp: run_troels(auth, id, size, ops,
-                                           maps + [(inp, outp)])
+                                           list(set(maps + [(inp, outp)])))
     run_troels1(auth, id, size, ops, maps, callback)
 
 def run_troels1(auth, id, size, ops, maps, callback):
