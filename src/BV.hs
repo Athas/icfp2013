@@ -80,42 +80,48 @@ ppBinOp Plus = "plus"
 parseProgram :: String -> Either String Program
 parseProgram = either (Left . show) Right . parse parseBV "input"
 
+constituent :: Parser Char
+constituent = oneOf $ ['a'..'z']++"_"++['0'..'9']
+
 token :: String -> Parser ()
 token s = string s *> spaces
+
+keyword :: String -> Parser ()
+keyword s = try $ string s *> notFollowedBy constituent *> spaces
 
 parens :: Parser a -> Parser a
 parens = between (token "(") (token ")")
 
 parseId :: Parser Id
-parseId = (:) <$> oneOf ['a'..'z'] <*> many (oneOf $ ['a'..'z']++"_"++['0'..'9']) <* spaces
+parseId = (:) <$> oneOf ['a'..'z'] <*> many constituent
 
 parseBV :: Parser Program
 parseBV = spaces *> parens body
   where body = Program <$>
-               (token "lambda" *> parens parseId) <*>
+               (keyword "lambda" *> parens parseId) <*>
                parseExp
 
 parseExp :: Parser Exp
 parseExp = token "0" *> pure Zero <|>
            token "1" *> pure One <|>
            Var <$> parseId <|>
-           parens (token "if0" *> pure If <*> parseExp <*> parseExp <*> parseExp <|>
-                   token "fold" *> pure Fold <*> parseExp <*> parseExp <*> parens (token "lambda" *> pure (,) <*> parens (pure (,) <*> parseId <*> parseId) <*> parseExp) <|>
+           parens (keyword "if0" *> pure If <*> parseExp <*> parseExp <*> parseExp <|>
+                   keyword "fold" *> pure Fold <*> parseExp <*> parseExp <*> parens (keyword "lambda" *> pure (,) <*> parens (pure (,) <*> parseId <*> parseId) <*> parseExp) <|>
                    pure UnOp <*> parseUnOp <*> parseExp <|>
                    pure BinOp <*> parseBinOp <*> parseExp <*> parseExp)
 
 parseUnOp :: Parser UnOp
-parseUnOp = token "not" *> pure Not <|>
-            token "shl1" *> pure Shl1 <|>
-            token "shr1" *> pure Shr1 <|>
-            token "shr4" *> pure Shr4 <|>
-            token "shr16" *> pure Shr16
+parseUnOp = keyword "not" *> pure Not <|>
+            keyword "shl1" *> pure Shl1 <|>
+            keyword "shr1" *> pure Shr1 <|>
+            keyword "shr4" *> pure Shr4 <|>
+            keyword "shr16" *> pure Shr16
 
 parseBinOp :: Parser BinOp
-parseBinOp = token "and" *> pure And <|>
-             token "or" *> pure Or <|>
-             token "xor" *> pure Xor <|>
-             token "plus" *> pure Plus
+parseBinOp = keyword "and" *> pure And <|>
+             keyword "or" *> pure Or <|>
+             keyword "xor" *> pure Xor <|>
+             keyword "plus" *> pure Plus
 
 runProgram :: Program -> Word64 -> Either String Word64
 runProgram (Program k0 progbody) arg =
