@@ -20,14 +20,18 @@ def load_problems(path):
 problems = load_problems('src/myproblems.json')
 problems_training = load_problems('src/myproblems_training.json')
 
+def offset(n, xs):
+    return map(lambda x: x + n, xs)
+
 def get_inputs(ops):
-    # if 'tfold' in ops:
-    return map(lambda x: x + 2**6 - 1, random.sample(xrange(0, 2**63 - 1), 128)) + random.sample(xrange(0, 2**63 - 1), 128)
-    # else:
-    #     return random.sample(xrange(0, 256), 64) \
-    #         + random.sample(xrange(2**64 - 256, 2**64), 64) \
-    #         + random.sample(xrange(256, 2**63), 64) \
-    #         + map(lambda x: x + 2**63 - 256, random.sample(xrange(256, 2**63), 64))
+    if 'tfold' in ops:
+        return random.sample(xrange(0, 2**63 - 1), 128) \
+            + offset(2**63 - 1, random.sample(xrange(0, 2**63 - 1), 128))
+    else:
+        return random.sample(xrange(0, 256), 64) \
+            + offset(2**64 - 257, random.sample(xrange(0, 256), 64)) \
+            + offset(256, random.sample(xrange(0, 2**63 - 1), 128)) \
+            + offset(2**63 - 257, random.sample(xrange(0, 2**63 - 1), 128))
 
 def get_problem(id):
     try:
@@ -43,7 +47,7 @@ def solve(auth, id):
     prob = get_problem(id)
     size = prob['size']
     ops = map(lambda s: s.encode(), prob['operators'])
-    arguments = list(map(hex, get_inputs(ops)))
+    arguments = list(map(lambda n: hex(n).replace('L', ''), get_inputs(ops)))
 
     print 'Getting outputs.'
     outputs = []
