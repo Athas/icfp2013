@@ -13,7 +13,7 @@ typedef enum _term_t {
   Byte,
   Acc,
   Fold,
-  If,
+  If0,
   Not,
   Shl1,
   Shr1,
@@ -64,7 +64,7 @@ static int printExpr(term_t *terms, int remaining) {
     fputs("))", stdout);
     break;
 
-  case If:
+  case If0:
     remaining = printExpr(terms, remaining);
     putchar(' ');
   case And:
@@ -129,7 +129,7 @@ static eval_ret eval_helper(term_t *terms, int remaining, uint64_t state[5]) {
     }
     break;
 
-  case If:
+  case If0:
     foo = eval_helper(terms, foo.remaining, state);
     saved_value0 = foo.value;
     foo = eval_helper(terms, foo.remaining, state);
@@ -226,7 +226,7 @@ int typecheck_helper(term_t *terms, int remaining, program_status *status) {
     remaining = typecheck_helper(terms, remaining, status);
     status->inside_fold = 2;
     break;
-  case If:
+  case If0:
     remaining = typecheck_helper(terms, remaining, status);
   case And:
   case Or:
@@ -276,7 +276,7 @@ uint64_t fitness(term_t *terms) {
       cur = cur - test_results[n];
     }
     if(fitness + cur < fitness) {
-      fitness = -3L;
+      fitness = -1L;
     } else {
       fitness += cur;
     }
@@ -322,7 +322,7 @@ static void update(prog_and_fitness *progs, int count) {
   for(n = 0; n < count; n++) {
     if(progs[n].fitness == 0) {
       if(typecheck(progs[n].prog) != 0) {
-        progs[n].fitness = -1;
+        progs[n].fitness = -1L;
       } else {
         progs[n].fitness = fitness(progs[n].prog);
       }
@@ -352,6 +352,7 @@ int main() {
     }
     update(arena, arrlen(arena));
     end = time(NULL) + RETRY_TIME;
+    /* printf("Retrying\n"); */
     while(time(NULL) < end) {
       for(k = 0; k < 1024; k++) {
         //    memcpy(&arena[arrlen(arena)-64], &arena[0], 64);
@@ -363,40 +364,18 @@ int main() {
           mutate(&arena[n], n / 32);
         }
         update(arena, arrlen(arena));
-        /* for(n = 0; n < 32; n++) { */
-        /*   printf("%lu ", arena[n].fitness); */
-        /* } */
-        /* printf("\n"); */
+
         if(arena[0].fitness == 0) {
-          break;
+          printProg(arena[0].prog);
+          return 0;
         }
       }
+      /* for(n = 0; n < 32; n++) { */
+      /*   printf("%lu ", arena[n].fitness); */
+      /* } */
+      /* printf("\n"); */
     }
   }
-  printProg(arena[0].prog);
-
-  /* while(1) { */
-  /*   if(typecheck(foo) == 0) { */
-  /*     if(fitness(foo) < 100000){ */
-  /*       printf("%lu: ", fitness(foo)); */
-  /*       printProg(foo); */
-  /*       if(fitness(foo) == 0) { */
-  /*         return 0; */
-  /*       } */
-  /*     } */
-  /*   } */
-  /*   broke = 0; */
-  /*   for(k = 0; k < arrlen(values); k++) { */
-  /*     values[k]++; */
-  /*     foo[arrlen(foo)-k-1] = ok[values[k]]; */
-  /*     if(values[k] < arrlen(ok)) { */
-  /*       broke = 1; */
-  /*       break; */
-  /*     } */
-  /*     values[k] = 0; */
-  /*   } */
-  /*   if(!broke) break; */
-  /* } */
 
   return 0;
 }
