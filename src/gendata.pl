@@ -5,6 +5,15 @@ use warnings;
 die("Give me a program!") if (@ARGV < 1);
 my $program = $ARGV[0];
 
+sub modtime { return (stat(shift))[9]; }
+
+my $exe = '../bin/main';
+my $src = 'Main.hs';
+
+unless (-e $exe && modtime($exe) >= modtime($src)) {
+    system("ghc $src -o $exe");
+}
+
 open(my $f, '>', 'data.h');
 
 # #define PROGSIZE 25
@@ -13,7 +22,7 @@ open(my $f, '>', 'data.h');
 # uint64_t test_results[] = {0, 0,     0x1234123412,       0x5634123412,       0x67891234121};
 # #define RETRY_TIME 10
 
-my $progsize = trim(`runhaskell Main.hs size "$program"`);
+my $progsize = trim(`$exe size "$program"`);
 
 sub trim {
        return $_[0] =~ s/^\s+|\s+$//rg;
@@ -29,12 +38,12 @@ sub genVals {
 }
 
 my @vals = ("0x0", "0x12345678", "0x1234567800000000", "0x1234567890ABCDEF", genVals(10));
-my @ress = map { trim(`runhaskell Main.hs eval "$program" $_`) } @vals;
+my @ress = map { trim(`$exe eval "$program" $_`) } @vals;
 
 my $values = join(', ', @vals);
 my $results = join(', ', @ress);
 
-my $operators = trim(`runhaskell Main.hs operators "$program"`);
+my $operators = trim(`$exe operators "$program"`);
 $operators =~ s/[^\w,]//g;
 $operators =~ s/(\w+)/\u$1/g;
 
