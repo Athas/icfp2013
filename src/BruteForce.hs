@@ -52,7 +52,7 @@ valid pairs prog = and [ x == output |
                                    Right out -> out ]
 
 bruteForce :: Int -> M.Map Word64 Word64 -> S.Set Ops -> [Program]
-bruteForce size pairs ops = filter (valid pairs) $ runBrute ops size $ do
+bruteForce size pairs ops = filter (valid pairs) $ runBrute ops size $
   if TFold `S.member` ops then do
     body <- hasFold $ inFold $ used 5 bruteExp
     return $ Program (ApplyFold (Var Arg) Zero body)
@@ -70,8 +70,7 @@ bruteExp = do
         let leaves' = if envFilling env then [] else leaves in
         case filter ((<=envRoom env) . minSize) $ S.toList $ envOps env of
           [] -> choice leaves'
-          ops -> do act <- choice $ map return leaves' ++ map bruteOp ops
-                    act
+          ops -> join $ choice (map return leaves' ++ map bruteOp ops)
 
 bruteOp :: Ops -> BruteM Exp
 bruteOp (UnOp op) = ApplyUnOp op <$> used 1 bruteExp
