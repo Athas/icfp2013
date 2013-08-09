@@ -61,10 +61,12 @@ bruteExp = do
   case envRoom env of
     n | n < 1 -> choice []
       | n == 1 -> choice leaves
-      | otherwise -> do
-      op <- choice $ filter ((<=envRoom env) . minSize) $ S.toList $ envOps env
-      e <- bruteOp op
-      if envFilling env then return e else choice $ e : leaves
+      | otherwise ->
+        let leaves' = if envFilling env then [] else leaves in
+        case filter ((<=envRoom env) . minSize) $ S.toList $ envOps env of
+          [] -> choice leaves'
+          ops -> do act <- choice $ map return leaves' ++ map bruteOp ops
+                    act
 
 bruteOp :: Ops -> BruteM Exp
 bruteOp (UnOp op) = ApplyUnOp op <$> used 1 bruteExp
