@@ -69,6 +69,11 @@ instance JSON Ops where
       "fold" -> return Fold
       "if0" -> return If0
       _ -> fail $ "Invalid operator " ++ s
+  showJSON (UnOp op) = showJSON $ ppUnOp op
+  showJSON (BinOp op) = showJSON $ ppBinOp op
+  showJSON Fold = showJSON "fold"
+  showJSON If0 = showJSON "if0"
+  showJSON TFold = showJSON "tfold"
 
 instance JSON Program where
   readJSON jsvalue = do
@@ -131,4 +136,12 @@ main = do
              Right v -> printf "0x%x\n" v
              Left err -> error err
          (_, _) -> error "Invalid numeric input"
+    ["size", progstr] -> do
+       case parseProgram progstr of
+         Left err -> error err
+         Right prog -> print $ progSize prog
+    ["operators", progstr] -> do
+       case parseProgram progstr of
+         Left err -> error err
+         Right prog -> putStrLn $ encode $ operators prog
     _ -> error "Wrong options"

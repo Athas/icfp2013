@@ -5,6 +5,8 @@ module BV
   , UnOp(..)
   , BinOp(..)
   , prettyPrint
+  , ppUnOp
+  , ppBinOp
   , parseProgram
   , runProgram
   , progSize
