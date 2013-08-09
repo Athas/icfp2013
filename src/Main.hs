@@ -3,7 +3,7 @@ module Main (main)
 where
 
 import BV
-import qualified BruteForce as TroelsForce
+import qualified KillAllPolarBears as TroelsForce
 import qualified DybberBruteForce as DybberForce
 
 import Control.Applicative
