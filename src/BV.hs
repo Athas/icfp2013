@@ -7,6 +7,9 @@ module BV
   , prettyPrint
   , parseProgram
   , runProgram
+  , progSize
+  , expOperators
+  , operators
   )
     where
 
@@ -14,6 +17,7 @@ import Control.Applicative
 import Control.Monad.Reader
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Bits
 import Data.Word
 
@@ -152,3 +156,27 @@ runProgram (Program k0 progbody) arg =
           pure xor <*> evalExp e1 <*> evalExp e2
         evalExp (BinOp Plus e1 e2) =
           pure (+) <*> evalExp e1 <*> evalExp e2
+
+progSize :: Program -> Int
+progSize (Program _ body) = 1 + expSize body
+  where expSize Zero = 1
+        expSize One = 1
+        expSize (Var _) = 1
+        expSize (If e0 e1 e2) = 1 + expSize e0 + expSize e1 + expSize e2
+        expSize (Fold e0 e1 ((_, _), e2)) = 2 + expSize e0 + expSize e1 + expSize e2
+        expSize (UnOp _ e0) = 1 + expSize e0
+        expSize (BinOp _ e0 e1) = 1 + expSize e0 + expSize e1
+
+expOperators :: Exp -> S.Set String
+expOperators Zero = S.empty
+expOperators One = S.empty
+expOperators (Var _) = S.empty
+expOperators (If e0 e1 e2) = S.insert "if0" $ S.unions $ map expOperators [e0, e1, e2]
+expOperators (Fold e0 e1 ((_,_), e2)) = S.insert "fold" $ S.unions $ map expOperators [e0, e1, e2]
+expOperators (UnOp op e) = S.insert (ppUnOp op) $ expOperators e
+expOperators (BinOp op e0 e1) = S.insert (ppBinOp op) $ S.unions $ map expOperators [e0, e1]
+
+operators :: Program -> S.Set String
+operators (Program x (Fold (Var k) Zero ((_,_), e)))
+  | x == k = S.insert "tfold" (expOperators e)
+operators (Program _ e) = expOperators e
