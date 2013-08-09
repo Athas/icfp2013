@@ -49,7 +49,7 @@ def make_eval_json(id, program, *arguments):
     return json.dumps(j)
 
 def eval(auth, *args):
-    return as_error('DISABLED')
+#    return as_error('DISABLED')
     return json_or_error(auth, 'eval', make_eval_json(*args))
 
 def make_guess_json(id, program):
@@ -59,7 +59,7 @@ def make_guess_json(id, program):
     return json.dumps(j)
 
 def guess(auth, *args):
-    return as_error('DISABLED')
+#    return as_error('DISABLED')
     return json_or_error(auth, 'guess', make_guess_json(*args))
 
 def make_train_json(size=None, operators=None):
