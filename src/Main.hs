@@ -27,7 +27,7 @@ runTrainSet samples tset =
   "Testing " ++ show (trainId tset) ++ " of size " ++
   show (progSize (trainChallenge tset)) ++ ": " ++ prettyPrint (trainChallenge tset) ++ "\n" ++
   case testBruteForce (trainChallenge tset) samples (trainSize tset) (trainOperators tset) of
-    [] -> "No solution found!\n"
+    [] -> error $ "No solution found!\n"
     prog:_ -> "Found " ++ prettyPrint prog ++ "\n"
 
 
@@ -99,4 +99,14 @@ main = do
                             Error err -> error $ "Invalid input line: " ++ err
                             Ok v -> runTrainSet (read n) v
       in interact $ unlines . map procLine . lines
+    -- Example:
+    -- ./Main solve 11 '["shr1","shr4","shr16","or","tfold"]' '[(1,1),(2,2),(3,3)]'
+    ["solve", sizestr, opsstr, iosstr] -> do
+       case (reads sizestr, decode opsstr, reads iosstr) of
+         ([(size, [])], Ok ops, [(ios, [])]) ->
+           case bruteForce size (M.fromList ios) (S.fromList ops) of
+             [] -> error "No solution found"
+             prog:_ -> putStrLn $ prettyPrint prog
+         (_, Error err, _) -> error err
+         (_, _, _) -> error "Malformed input"
     _ -> error "Wrong options"
