@@ -48,7 +48,7 @@ $operators =~ s/Fold/Fold,Acc,Byte/g;
 
 print $f <<EOF;
 #define PROGSIZE $progsize
-term_t ok[] = {$operators};
+term_t ok[] = {Zero,One,Arg,$operators};
 uint64_t test_values[]  = {$values};
 uint64_t test_results[] = {$results};
 #define RETRY_TIME 10
