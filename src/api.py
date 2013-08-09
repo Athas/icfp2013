@@ -41,17 +41,24 @@ def json_or_error(auth, path, body=None):
 def myproblems(auth):
     return json_or_error(auth, 'myproblems')
 
-def make_eval_json(id, program, *arguments):
+def make_eval_json(id, *arguments):
     j = {}
     j['id'] = id
-    j['program'] = program
-    j['arguments'] = json.loads(arguments)
+    j['arguments'] = json.dumps(arguments)
     return json.dumps(j)
 
 def eval(auth, *args):
-#    return as_error('DISABLED')
     return json_or_error(auth, 'eval', make_eval_json(*args))
 
+def make_evalprog_json(program, *arguments):
+    j = {}
+    j['program'] = program
+    j['arguments'] = json.dumps(arguments)
+    return json.dumps(j)
+
+def evalprog(auth, *args):
+    return json_or_error(auth, 'eval', make_evalprog_json(*args))
+    
 def make_guess_json(id, program):
     j = {}
     j['id'] = id
@@ -59,7 +66,6 @@ def make_guess_json(id, program):
     return json.dumps(j)
 
 def guess(auth, *args):
-#    return as_error('DISABLED')
     return json_or_error(auth, 'guess', make_guess_json(*args))
 
 def make_train_json(size=None, operators=None):
@@ -67,7 +73,7 @@ def make_train_json(size=None, operators=None):
     if size is not None:
         j['size'] = int(size)
     if operators is not None:
-        j['operators'] = operators
+        j['operators'] = json.dumps([operators])
     return json.dumps(j)
 
 def train(auth, *args):
@@ -87,7 +93,8 @@ Your auth key must reside in the 'authkey' file.
 
 Commands:
   myproblems
-  eval ID PROGRAM ARGUMENT...
+  eval ID ARGUMENT...
+  evalprog PROGRAM ARGUMENT...
   guess ID PROGRAM
   train [SIZE [OPERATORS]]
   status\
@@ -106,7 +113,8 @@ def run_main():
         args = sys.argv[2:]
         (min_args, f) = {
             'myproblems': (0, lambda: myproblems(auth)),
-            'eval': (3, lambda: eval(auth, *args)),
+            'eval': (2, lambda: eval(auth, *args)),
+            'evalprog': (2, lambda: evalprog(auth, *args)),
             'guess': (2, lambda: guess(auth, args[0], args[1])),
             'train': (0, lambda: train(auth, *args[0:2])),
             'status': (0, lambda: status(auth))
