@@ -8,6 +8,7 @@ module BV
   , parseProgram
   , runProgram
   , progSize
+  , expSize
   , Ops(..)
   , expOperators
   , operators
@@ -29,6 +30,7 @@ data Id = Arg | Byte | Acc
         deriving (Eq, Ord, Show)
 
 data Program = Program Exp
+               deriving (Eq, Show)
 
 data Exp = Zero
          | One
@@ -37,19 +39,20 @@ data Exp = Zero
          | ApplyFold Exp Exp Exp
          | ApplyUnOp UnOp Exp
          | ApplyBinOp BinOp Exp Exp
+           deriving (Eq, Show)
 
 data UnOp = Not
           | Shl1
           | Shr1
           | Shr4
           | Shr16
-            deriving (Eq, Ord)
+            deriving (Eq, Ord, Show)
 
 data BinOp = And
            | Or
            | Xor
            | Plus
-             deriving (Eq, Ord)
+             deriving (Eq, Ord, Show)
 
 prettyPrint :: Program -> String
 prettyPrint (Program e) =
@@ -102,7 +105,7 @@ parens :: Parser a -> Parser a
 parens = between (token "(") (token ")")
 
 parseName :: Parser String
-parseName = (:) <$> oneOf ['a'..'z'] <*> many constituent
+parseName = (:) <$> oneOf ['a'..'z'] <*> many constituent <* spaces
 
 parseId :: M.Map String Id -> Parser Id
 parseId ns = do s <- parseName
@@ -184,13 +187,15 @@ runProgram (Program progbody) arg =
 
 progSize :: Program -> Int
 progSize (Program body) = 1 + expSize body
-  where expSize Zero = 1
-        expSize One = 1
-        expSize (Var _) = 1
-        expSize (If e0 e1 e2) = 1 + expSize e0 + expSize e1 + expSize e2
-        expSize (ApplyFold e0 e1 e2) = 2 + expSize e0 + expSize e1 + expSize e2
-        expSize (ApplyUnOp _ e0) = 1 + expSize e0
-        expSize (ApplyBinOp _ e0 e1) = 1 + expSize e0 + expSize e1
+
+expSize :: Exp -> Int
+expSize Zero = 1
+expSize One = 1
+expSize (Var _) = 1
+expSize (If e0 e1 e2) = 1 + expSize e0 + expSize e1 + expSize e2
+expSize (ApplyFold e0 e1 e2) = 2 + expSize e0 + expSize e1 + expSize e2
+expSize (ApplyUnOp _ e0) = 1 + expSize e0
+expSize (ApplyBinOp _ e0 e1) = 1 + expSize e0 + expSize e1
 
 data Ops = UnOp UnOp
          | BinOp BinOp
