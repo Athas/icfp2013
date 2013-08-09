@@ -217,5 +217,5 @@ expOperators (ApplyBinOp op e0 e1) = S.insert (BinOp op) $ S.unions $ map expOpe
 
 operators :: Program -> S.Set Ops
 operators (Program (ApplyFold (Var Arg) Zero e)) =
-  S.insert TFold (expOperators e)
+  S.insert TFold (Fold `S.delete` expOperators e)
 operators (Program e) = expOperators e

@@ -352,6 +352,14 @@ int compare(const void *p1_, const void *p2_) {
 static void update(prog_and_fitness *progs, int count) {
   int n;
 
+#ifdef TFOLD
+  for(n = 0; n < count; n++) {
+      progs[n].prog[0] = Fold;
+      progs[n].prog[1] = Arg;
+      progs[n].prog[2] = Zero;
+  }
+#endif
+
   for(n = 0; n < count; n++) {
     if(progs[n].fitness == 0) {
       if(typecheck(progs[n].prog) != 0) {
@@ -380,8 +388,8 @@ int main() {
     for(n = 0; n < arrlen(arena); n++) {
       for(k = 0; k < PROGSIZE; k++) {
         arena[n].prog[k] = ok[rand() % arrlen(ok)];
-        arena[n].fitness = 0;
       }
+      arena[n].fitness = 0;
     }
     update(arena, arrlen(arena));
     end = time(NULL) + RETRY_TIME;

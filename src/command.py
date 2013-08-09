@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import random
 import subprocess
 import api
 import json
-import numpy
+from multiprocessing import Process
 
 
 def load_problems(path):
@@ -19,14 +20,18 @@ def load_problems(path):
 problems = load_problems('src/myproblems.json')
 problems_training = load_problems('src/myproblems_training.json')
 
+def offset(n, xs):
+    return map(lambda x: x + n, xs)
+
 def get_inputs(ops):
-    # if 'tfold' in ops:
-    return map(lambda x: x + 2**6 - 1, random.sample(xrange(0, 2**63 - 1), 128)) + random.sample(xrange(0, 2**63 - 1), 128)
-    # else:
-    #     return random.sample(xrange(0, 256), 64) \
-    #         + random.sample(xrange(2**64 - 256, 2**64), 64) \
-    #         + random.sample(xrange(256, 2**63), 64) \
-    #         + map(lambda x: x + 2**63 - 256, random.sample(xrange(256, 2**63), 64))
+    if 'tfold' in ops:
+        return random.sample(xrange(0, 2**63 - 1), 128) \
+            + offset(2**63 - 1, random.sample(xrange(0, 2**63 - 1), 128))
+    else:
+        return random.sample(xrange(0, 256), 64) \
+            + offset(2**64 - 257, random.sample(xrange(0, 256), 64)) \
+            + offset(256, random.sample(xrange(0, 2**63 - 1), 128)) \
+            + offset(2**63 - 257, random.sample(xrange(0, 2**63 - 1), 128))
 
 def get_problem(id):
     try:
@@ -42,9 +47,11 @@ def solve(auth, id):
     prob = get_problem(id)
     size = prob['size']
     ops = map(lambda s: s.encode(), prob['operators'])
-    arguments = list(map(hex, get_inputs(ops)))
+    print 'ID:', id
+    print 'Size:', size
+    print 'Ops:', ops
+    arguments = list(map(lambda n: hex(n).replace('L', ''), get_inputs(ops)))
 
-    print 'Getting outputs.'
     outputs = []
     for i in range(0, len(arguments), 256):
         arguments1 = arguments[i:i + 256]
@@ -60,8 +67,52 @@ def solve(auth, id):
             outputs.extend(j['outputs'])
 
     maps = zip(map(unhex, arguments), map(unhex, outputs))
+    print 'All necessary data acquired.  Starting guessing!'
+
+    troels = Process(target=run_troels, args=(auth, id, size, ops, maps))
+    genetic = Process(target=run_genetic, args=(auth, id, size, ops, arguments, outputs))
+    troels.start()
+    genetic.start()
+
+def format_c_array(xs):
+    return '{' + ', '.join(xs) + '}'
+    
+def run_genetic(auth, id, size, ops, arguments, outputs):
+    ops = set(ops)
+    if 'tfold' in ops:
+        ops.add('fold')
+        ops.remove('tfold')
+        extra = '#define TFOLD\n'
+    else:
+        extra = ''
+    if 'fold' in ops:
+        ops.add('acc')
+        ops.add('byte')
+    ops.add('zero')
+    ops.add('one')
+    ops.add('arg')
+    ops_arr = format_c_array(map(lambda op: op[0].upper() + op[1:], ops))
+    values_arr = format_c_array(arguments)
+    results_arr = format_c_array(map(lambda x: x.encode(), outputs))
+    data = '''\
+%s#define PROGSIZE %d
+term_t ok[] = %s;
+uint64_t test_values[]  = %s;
+uint64_t test_results[] = %s;
+#define RETRY_TIME 10
+    ''' % (extra, size, ops_arr, values_arr, results_arr)
+    # print 'data.h:\n'
+    # print data
+    with open('src/data.h', 'w') as f:
+        f.write(data)
+    subprocess.Popen(['make', '-C', 'src'])
+    out = subprocess.Popen(['./src/genetic'], stdout=subprocess.PIPE).communicate()[0]
+    prog = out.strip()
+    guess_program(auth, id, prog, 'GENERNE')
+
+def run_troels(auth, id, size, ops, maps):
     cmd = ['./src/Main', 'solve', str(size), str(ops).replace("'", '"'), str(maps).replace('L', '')]
-    print 'Command:', cmd
+    # print 'Command:', cmd
     out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 
     out += err
@@ -71,25 +122,37 @@ def solve(auth, id):
         print 'NO SOLUTION FOUND!  TIME IS RUNNING OUT!'
         return
     prog = out.strip()
+    guess_program(auth, id, prog, 'TROELS')
+
+def guess_program(auth, id, prog, source):
     print 'Program found: ' + prog
     (t, d) = api.guess(auth, id, prog)
     if t == 'error':
         api.error(d)
-        print 'GUESSING WENT WRONG!  TIME IS RUNNING OUT!'
+        print source + ' GUESSING WENT WRONG!  TIME IS RUNNING OUT!'
         return
     elif t == 'json':
         print d
         j = json.loads(d)
         if j['status'] == 'win':
-            print 'YOU WON! ' * 10
+            print (source + ' WON! ') * 10
             with open('wins', 'w') as f:
                 f.write(id + '\n')
+            sys.exit()
+
+def trainids():
+    with open('src/myproblems_training.json') as f:
+        problems = json.load(f)
+
+    for x in problems:
+        print x['id']
 
 def print_help():
     print '''usage: ./command.py COMMAND [ARGS] -> STATUS
 
 Commands:
   solve ID\
+  trainids
 '''
 
 def run_main():
@@ -100,9 +163,13 @@ def run_main():
 
     try:
         args = sys.argv[2:]
-        (min_args, f) = {
-            'solve': (1, lambda: solve(auth, args[0])),
-        }[sys.argv[1]]
+        try:
+            (min_args, f) = {
+                'solve': (1, lambda: solve(auth, args[0])),
+                'trainids': (0, trainids),
+            }[sys.argv[1]]
+        except KeyError:
+            raise IndexError
         if min_args > len(args):
             raise IndexError
     except IndexError:
