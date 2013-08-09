@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <string.h>
 
 #define arrlen(x) (sizeof(x) / sizeof(x[0]))
-#define PROGSIZE 11
+#define PROGSIZE 15
 
 typedef enum _term_t {
   Zero,
@@ -25,6 +26,17 @@ typedef enum _term_t {
   Plus,
 } term_t;
 #define TERM_TYPES 16
+
+term_t ok[] = {Zero, One, Arg, If, Not, Or, Plus, Shr16, Xor};
+uint64_t test_values[]  = {0, 0x100, 0x1234, 0x1234123412341234, 0x1234123412343333, 0x4444123412343333};
+uint64_t test_results[] = {1, 0x1,   1,      0x246824682469,     0x246824682469,     0x888824682469};
+
+typedef struct _prog_and_fitness {
+  term_t prog[PROGSIZE];
+  uint64_t fitness;
+} prog_and_fitness;
+
+prog_and_fitness arena[1024+64];
 
 char *term_strings[] = {
   "0", "1", "arg", "byte", "acc",
@@ -49,9 +61,9 @@ static int printExpr(term_t *terms, int remaining) {
   case Fold:
     remaining = printExpr(terms, remaining);
     putchar(' ');
-    remaining = printExpr(terms, remaining-1);
-    fputs(" (lambda (byte acc) ", stdout);
     remaining = printExpr(terms, remaining);
+    fputs(" (lambda (byte acc) ", stdout);
+    remaining = printExpr(terms, remaining-1);
     fputs("))", stdout);
     break;
 
@@ -132,6 +144,7 @@ static eval_ret eval_helper(term_t *terms, int remaining, uint64_t state[5]) {
   case Not:
     foo = eval_helper(terms, foo.remaining, state);
     foo.value = ~foo.value;
+    break;
 
   case Shl1:
     foo = eval_helper(terms, foo.remaining, state);
@@ -186,7 +199,7 @@ static eval_ret eval_helper(term_t *terms, int remaining, uint64_t state[5]) {
 }
 
 static uint64_t eval(term_t *terms, uint64_t value) {
-  uint64_t state[5] = {0, 1, 0, 0, 0};
+  uint64_t state[5] = {0, 1, value, 0, 0};
   eval_ret foo = eval_helper(terms, PROGSIZE, state);
   return foo.value;
 }
@@ -255,8 +268,6 @@ static int typecheck(term_t *terms) {
 }
 
 uint64_t fitness(term_t *terms) {
-  uint64_t test_values[10] = {0x17, 0x48, 0xff, 0x500, 0x513513};
-  uint64_t test_results[10] = {0x18, 0x49, 0x100, 0x501, 0x513514};
   int n;
   uint64_t fitness = 0, cur;
 
@@ -268,42 +279,121 @@ uint64_t fitness(term_t *terms) {
       cur = cur - test_results[n];
     }
     if(fitness + cur < fitness) {
-      fitness = 0xffffffffffffffff;
+      fitness = -3L;
     } else {
       fitness += cur;
     }
   }
   return fitness;
 }
+static void mutate(prog_and_fitness *terms, uint8_t chance) {
+  int n;
+
+  for(n = 0; n < PROGSIZE; n++) {
+    if((rand()&0xff) < chance) {
+      terms->prog[n] = ok[rand() % arrlen(ok)];
+    }
+  }
+}
+
+static void mate(prog_and_fitness *dst, prog_and_fitness *src) {
+  int n;
+
+  for(n = 0; n < PROGSIZE; n++) {
+    if(rand()&1) {
+      dst->prog[n] = src->prog[n];
+      dst->fitness = 0;
+    }
+  }
+}
+
+int compare(const void *p1_, const void *p2_) {
+  const prog_and_fitness *p1 = p1_;
+  const prog_and_fitness *p2 = p2_;
+  if(p1->fitness < p2->fitness) {
+    return -1;
+  } else if(p1->fitness > p2->fitness) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+static void update(prog_and_fitness *progs, int count) {
+  int n;
+
+  for(n = 0; n < count; n++) {
+    if(progs[n].fitness == 0) {
+      if(typecheck(progs[n].prog) != 0) {
+        progs[n].fitness = -1;
+      } else {
+        progs[n].fitness = fitness(progs[n].prog);
+      }
+    }
+  }
+  qsort(progs, count, sizeof(progs[0]), compare);
+}
 
 int main() {
-  int k, good = 0;
-  term_t foo[PROGSIZE];
-  int values[PROGSIZE] = {0};
-  term_t ok[] = {Zero, One, Arg, If, Not, Plus, Shr1};
-  int broke;
+  int n, k;
+
+  /* term_t foo[PROGSIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Arg, 0, 0, 0, Fold}; */
+  /* printProg(foo); */
+  /* printf("%lu\n", eval(foo, 0x12345678)); */
+  /* return 0; */
 
   srand(time(NULL));
 
-  while(1) {
-    if(typecheck(foo) == 0) {
-      if(fitness(foo) < 5323638) {
-        printf("%lu\n", fitness(foo));
-        printProg(foo);
-      }
+  for(n = 0; n < arrlen(arena); n++) {
+    for(k = 0; k < PROGSIZE; k++) {
+      arena[n].prog[k] = ok[rand() % arrlen(ok)];
+      arena[n].fitness = 0;
     }
-    broke = 0;
-    for(k = 0; k < arrlen(values); k++) {
-      values[k]++;
-      foo[arrlen(foo)-k-1] = ok[values[k]];
-      if(values[k] < arrlen(values)) {
-        broke = 1;
-        break;
-      }
-      values[k] = 0;
-    }
-    if(!broke) break;
   }
+  update(arena, arrlen(arena));
+
+  while(1) {
+    memcpy(&arena[arrlen(arena)-64], &arena[0], 64);
+    for(n = arrlen(arena); n > 256; n--) {
+      mate(&arena[n], &arena[rand() % n]);
+    }
+    update(arena, arrlen(arena));
+    for(n = arrlen(arena); n > 64; n--) {
+      mutate(&arena[n], n / 32);
+    }
+    update(arena, arrlen(arena));
+    for(n = 0; n < 32; n++) {
+      printf("%lu ", arena[n].fitness);
+    }
+    printf("\n");
+    if(arena[0].fitness == 0) {
+      break;
+    }
+  }
+  printProg(arena[0].prog);
+
+  /* while(1) { */
+  /*   if(typecheck(foo) == 0) { */
+  /*     if(fitness(foo) < 100000){ */
+  /*       printf("%lu: ", fitness(foo)); */
+  /*       printProg(foo); */
+  /*       if(fitness(foo) == 0) { */
+  /*         return 0; */
+  /*       } */
+  /*     } */
+  /*   } */
+  /*   broke = 0; */
+  /*   for(k = 0; k < arrlen(values); k++) { */
+  /*     values[k]++; */
+  /*     foo[arrlen(foo)-k-1] = ok[values[k]]; */
+  /*     if(values[k] < arrlen(ok)) { */
+  /*       broke = 1; */
+  /*       break; */
+  /*     } */
+  /*     values[k] = 0; */
+  /*   } */
+  /*   if(!broke) break; */
+  /* } */
 
   return 0;
 }
