@@ -10,8 +10,6 @@ import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
 
-import Data.Word
-import qualified Data.Map as M
 import qualified Data.Set as S
 
 data BruteEnv = BruteEnv { envOps :: S.Set Ops

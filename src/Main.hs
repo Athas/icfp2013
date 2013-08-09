@@ -80,6 +80,7 @@ instance JSON Program where
     prog <- parseProgram <$> readJSON jsvalue
     case prog of Right prog' -> return prog'
                  Left err    -> fail err
+  showJSON = showJSON . prettyPrint
 
 instance JSON TrainSet where
   readJSON jsvalue = do
