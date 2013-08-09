@@ -7,6 +7,7 @@ import qualified BruteForce as TroelsForce
 import qualified DybberBruteForce as DybberForce
 
 import Control.Applicative
+import Control.Monad
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -130,14 +131,16 @@ main = do
       solve TroelsForce.bruteForce sizestr opsstr iosstr
     ["dybbersolve", sizestr, opsstr, iosstr] ->
       solve DybberForce.bruteForce sizestr opsstr iosstr
-    ["eval", progstr, inputstr] -> do
-       case (parseProgram progstr, reads inputstr) of
-         (Left err, _) -> error err
-         (Right prog, [(input, [])]) ->
-           case runProgram prog input of
-             Right v -> printf "0x%x\n" v
-             Left err -> error err
-         (_, _) -> error "Invalid numeric input"
+    "eval" : progstr : inputstrs -> do
+       case parseProgram progstr of
+         Left err -> error err
+         Right prog ->
+           forM_ inputstrs $ \inputstr ->
+             case reads inputstr of
+               [(input,[])] -> case runProgram prog input of
+                                 Right v -> putStrLn $ printf "0x%x" v
+                                 Left err -> error $ "With input " ++ show input ++ ": " ++ err
+               _ -> error $ "Invalid numeric input " ++ inputstr
     ["size", progstr] -> do
        case parseProgram progstr of
          Left err -> error err
