@@ -44,7 +44,7 @@ def myproblems(auth):
 def make_eval_json(id, *arguments):
     j = {}
     j['id'] = id
-    j['arguments'] = json.dumps(arguments)
+    j['arguments'] = arguments
     return json.dumps(j)
 
 def eval(auth, *args):
@@ -53,7 +53,7 @@ def eval(auth, *args):
 def make_evalprog_json(program, *arguments):
     j = {}
     j['program'] = program
-    j['arguments'] = json.dumps(arguments)
+    j['arguments'] = arguments
     return json.dumps(j)
 
 def evalprog(auth, *args):
