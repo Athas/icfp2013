@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 //#define FIT_BITDIST
 #define FIT_NUMDIFF
@@ -382,7 +384,7 @@ int main() {
   /* printf("%lu\n", eval(foo, 0x12345678)); */
   /* return 0; */
 
-  srand(time(NULL));
+  srand(time(NULL)+getpid());
 
 
   while(1) {
