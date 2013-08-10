@@ -7,8 +7,10 @@ import random
 import subprocess
 import api
 import json
-from multiprocessing import Process
+import threading
 
+
+has_won = False
 
 def load_problems(path):
     with open(path) as f:
@@ -45,10 +47,21 @@ def unhex(t):
     return int(t[2:], 16)
 
 pids = []
+threads = []
+
+def shutit():
+    for p in pids:
+        try:
+            os.kill(p, 9)
+        except OSError:
+            pass
+        sys.exit()
+
 def solve(auth, id):
     prob = get_problem(id)
     size = prob['size']
     ops = map(lambda s: s.encode(), prob['operators'])
+    print
     print 'ID:', id
     print 'Size:', size
     print 'Ops:', ops
@@ -71,16 +84,23 @@ def solve(auth, id):
     maps = zip(map(unhex, arguments), map(unhex, outputs))
     print 'All necessary data acquired.  Starting guessing!'
 
-    troels = Process(target=run_troels, args=(auth, id, size, ops, maps))
-    genetic = Process(target=run_genetic, args=(auth, id, size, ops, arguments, outputs))
+    troels = threading.Thread(target=run_troels, args=(auth, id, size, ops, maps))
+    genetic = threading.Thread(target=run_genetic, args=(auth, id, size, ops, arguments, outputs))
+    wait = threading.Thread(target=waiter)
+    # troels.daemon = True
+    # genetic.daemon = True
+    # wait.daemon = True
     troels.start()
     genetic.start()
+    wait.start()
+    threads.extend([troels, genetic, wait])
 
-    raw_input()
-    for p in pids:
-        os.kill(pid, 9)
-    troels.terminate()
-    genetic.terminate()
+def waiter():
+    try:
+        raw_input()
+    except EOFError:
+        pass
+    shutit()
     
     # timer = Process(target=timer_func)
     # timer.start()
@@ -163,7 +183,12 @@ def run_troels1(auth, id, size, ops, maps, callback):
     guess_program(auth, id, prog, 'TROELS', callback)
 
 def guess_program(auth, id, prog, source, expand_search):
-    print 'Program found: ' + prog
+    global has_won
+    print 'Program found from %s: %s' % (source, prog)
+    if has_won:
+        print 'Has already won'
+        shutit()
+        return
     (t, d) = api.guess(auth, id, prog)
     if t == 'error':
         api.error(d)
@@ -173,7 +198,9 @@ def guess_program(auth, id, prog, source, expand_search):
         print d
         j = json.loads(d)
         if j['status'] == 'win':
+            has_won = True
             print (source + ' WON! ') * 10
+            shutit()
             with open('wins', 'w') as f:
                 f.write(id + '\n')
             
