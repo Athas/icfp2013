@@ -117,6 +117,9 @@ def _solve(auth, path, path2, id, local_solvers):
         elif j['status'] == 'ok':
             outputs.extend(map(unhex, j['outputs']))
 
+    with open('data/input-outputs-%s' % id, 'w') as f:
+        f.write(str(inputs) + '\n' + str(outputs))
+
     print 'All necessary data acquired.  Starting guessing!'
 
     args = [auth, id, size, ops, path, inputs, outputs]
@@ -240,8 +243,8 @@ def _run_genetic(callback, auth, id, size, ops, path, inputs, outputs, name):
     ops.add('arg')
     
     ops_arr = format_c_array(map(lambda op: op[0].upper() + op[1:], ops))
-    values_arr = format_c_array(map(lambda x: str(x).encode(), inputs))
-    results_arr = format_c_array(map(lambda x: str(x).encode(), outputs))
+    values_arr = format_c_array(map(lambda x: lhex(x), inputs))
+    results_arr = format_c_array(map(lambda x: lhex(x), outputs))
     
     data = '''\
 %s#define PROGSIZE %d

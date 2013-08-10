@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os.path
 import sys
 import json
 import time
@@ -32,6 +33,8 @@ def check_for_solvers(xs):
     return xs
     
 def run_main():
+    if os.path.exists('stop'):
+        sys.exit(2)
     auth = api.get_authkey()
     if auth is None:
         print_help()
