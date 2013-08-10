@@ -50,7 +50,6 @@ def offset(n, xs):
     return map(lambda x: x + n, xs)
 
 def get_inputs(ops):
-    return [3331]
     if 'tfold' in ops:
         return random.sample(xrange(0, 2**63 - 1), 128) \
             + offset(2**63 - 1, random.sample(xrange(0, 2**63 - 1), 128))
