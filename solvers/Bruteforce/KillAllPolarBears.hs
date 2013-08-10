@@ -38,8 +38,18 @@ runBrute ops maxSize m = Par.runPar $ runListT $ evalStateT (runReaderT m env) s
 hasFold :: BruteM a -> BruteM a
 hasFold = local (\env -> env { envOps = TFold `S.delete` (Fold `S.delete` envOps env) })
 
+hasIf :: BruteM a -> BruteM a
+hasIf = local $ \env -> env { envOps = If0 `S.delete` envOps env }
+
 inFold :: BruteM a -> BruteM a
 inFold = local (\env -> env { envVars =  Byte `S.insert` (Acc `S.insert` envVars env) })
+
+inTFold :: BruteM a -> BruteM a
+inTFold = local $ \env -> env { envVars = Arg `S.delete`
+                                          (Byte `S.insert`
+                                           (Acc `S.insert` envVars env))
+                              , envOps = TFold `S.delete` (Fold `S.delete` envOps env)
+                              }
 
 used :: Int -> (Int -> BruteM a) -> BruteM a
 used k m = local (\env -> env { envRoom = envRoom env - k }) $
@@ -74,8 +84,8 @@ forkSubtree = do
 bruteForce :: Int -> S.Set Ops -> [Program]
 bruteForce size ops = concat $ runBrute ops size $
   if TFold `S.member` ops then do
-    exps <- join $ hasFold $ inFold $ used 5 $ const bruteExp
-    return $ map (Program . ApplyFold (Var Arg) Zero) exps
+    exps <- join $ inTFold $ used 5 $ const bruteExp
+    return $ map ProgramTFold exps
   else do
     body <- join $ used 1 (const bruteExp)
     return $ map Program body
@@ -104,7 +114,7 @@ bruteOp (BinOp op) = used 1 $ \room -> do
   return $ do xs <- xres
               ys <- yres
               return [ ApplyBinOp op x y | x <- xs, y <- ys ]
-bruteOp If0 = used 1 $ \room -> do
+bruteOp If0 = hasIf $ used 1 $ \room -> do
   e0size <- choice [1..room-2]
   e1size <- choice [1..room-1-e0size]
   e2size <- choice [1..room-e0size-e1size]
