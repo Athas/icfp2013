@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd solvers/
+ghc -O3 MiscInterface

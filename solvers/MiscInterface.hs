@@ -3,8 +3,8 @@ module Main (main)
 where
 
 import BV
-import qualified KillAllPolarBears as TroelsForce
-import qualified DybberBruteForce as DybberForce
+import qualified Bruteforce.KillAllPolarBears as TroelsForce
+import qualified Bruteforce.DybberBruteForce as DybberForce
 
 import Control.Applicative
 import Control.Monad

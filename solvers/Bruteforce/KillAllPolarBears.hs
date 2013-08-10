@@ -1,11 +1,11 @@
-module KillAllPolarBears
+module Bruteforce.KillAllPolarBears
   ( bruteForce
   )
 
 where
 
 import BV
-import BruteForce (bruteExpFrom)
+import Bruteforce.BruteForce (bruteExpFrom)
 
 import Control.Monad.State
 import Control.Monad.Par (Par)

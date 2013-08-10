@@ -1,4 +1,4 @@
-module DybberBruteForce where
+module Bruteforce.DybberBruteForce where
 
 import BV
 import qualified Data.Set as S

@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+import sys
+import json
+import time
+from logging import info, warning, error
+
+import lib.api as api
+
+
+def print_help():
+    print '''usage: %s COMMAND [ARGS] -> TYPE\\nDATA
+  where TYPE = 'json' | 'error'
+
+Your auth key must reside in the 'authkey' file.
+
+Commands:
+  myproblems
+  eval ID ARGUMENT...
+  evalprog PROGRAM ARGUMENT...
+  guess ID PROGRAM
+  train [SIZE [OPERATORS]]
+  status\
+''' % sys.argv[0]
+
+def run_main():
+    auth = api.get_authkey()
+    if auth is None:
+        print_help()
+        return
+
+    try:
+        args = sys.argv[2:]
+        try:
+            (min_args, f) = {
+                'myproblems': (0, lambda: api.myproblems(auth)),
+                'eval': (2, lambda: api.eval(auth, *args)),
+                'evalprog': (2, lambda: api.evalprog(auth, *args)),
+                'guess': (2, lambda: api.guess(auth, args[0], args[1])),
+                'train': (0, lambda: api.train(auth, *args[0:2])),
+                'status': (0, lambda: api.status(auth)),
+            }[sys.argv[1]]
+        except KeyError:
+            raise IndexError
+        if min_args > len(args):
+            raise IndexError
+    except IndexError:
+        print_help()
+        return
+
+    (t, d) = f()
+    print t + '\n' + d if t == 'json' else '%d %s' % (d, response_text(d))
+
+if __name__ == '__main__':
+    run_main()

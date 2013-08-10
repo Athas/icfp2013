@@ -1,4 +1,4 @@
-module BruteForce
+module Bruteforce.BruteForce
   ( bruteForce
   , BruteEnv
   , bruteExpFrom
