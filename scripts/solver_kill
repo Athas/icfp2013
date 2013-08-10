@@ -1,0 +1,6 @@
+#!/bin/sh
+
+pkill -KILL MiscInterface
+pkill -KILL genetic
+pkill -KILL command
+pkill -KILL solve

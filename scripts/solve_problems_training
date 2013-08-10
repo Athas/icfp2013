@@ -3,5 +3,8 @@
 set -e
 
 for x in `cat data/missing_problems_training`; do
+    ./scripts/counter &
+    pid=$!
     ./scripts/command solvetrain $x "$@"
+    kill $pid
 done

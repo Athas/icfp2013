@@ -5,11 +5,13 @@ import random
 import json
 import threading
 import subprocess
+import shutil
+import tempfile
 
 import lib.api as api
 from lib.api import error
 
-
+guess_lock = threading.Lock()
 finish_event = threading.Event()
 exit_code = 0
 has_won = False
@@ -36,14 +38,24 @@ def run_polar(*args):
     return _run_polar(create_callback(run_polar, *args), *args)
 
 def run_genetic(*args):
-    return _run_genetic(create_callback(run_genetic, *args), *args)
+    try:
+        return _run_genetic(create_callback(run_genetic, *args), *args)
+    except (KeyboardInterrupt, EOFError):
+        exit_all(1)
 
+def with_ki(f):
+    def g(*args):
+        try:
+            f(*args)
+        except (KeyboardInterrupt, EOFError):
+            exit_all(3)
+    return g
 
 solvers = {
-    'brute': run_brute,
-    'dybber': run_dybber,
-#    'polar': run_polar,
-    'genetic': run_genetic,
+    'brute': with_ki(run_brute),
+    'dybber': with_ki(run_dybber),
+#    'polar': with_ki(run_polar),
+    'genetic': with_ki(run_genetic),
 }
 
 def offset(n, xs):
@@ -74,6 +86,7 @@ def exit_all(c=0):
             os.kill(pid, 9)
         except OSError:
             continue
+    set_exit_code(c)
     sys.exit(c)
 
 def solve(*args):
@@ -132,15 +145,19 @@ def _solve(auth, path, path2, id, local_solvers):
             continue
         funcs.append((func, m))
 
-    threads = []
     for f, m in funcs:
-        t = threading.Thread(target=f, args=args + [m])
-        threads.append(t)
-    for t in threads:
-        t.start()
+        threading.Thread(target=f, args=args + [m]).start()
+    # t = threading.Thread(target=with_ki(counter))
+    # t.start()
 
     finish_event.wait()
 
+def counter():
+    start = time.time()
+    while True:
+        time.sleep(10)
+        print time.time() - start
+    
 def remove_file_line(path, id):
     with open(path) as f:
         lines = f.read().split('\n')
@@ -154,10 +171,18 @@ def remove_file_line(path, id):
 def guess_program(auth, id, prog, name, path, expand_search):
     global has_won, n_losses
     print 'Program found from %s: %s' % (name, prog)
+    has_won_now = False
+    guess_lock.acquire()
     if not has_won:
         (t, d) = api.guess(auth, id, prog)
-    else:
-        (t, d) = api.as_error(api.PROBLEM_ALREADY_SOLVED)
+        if t == 'json' and json.loads(d)['status'] == 'win':
+            has_won = True
+            has_won_now = True
+    guess_lock.release()
+    if has_won and not has_won_now:
+        api.error('You have solved this.')
+        exit_all()
+        return
     if t == 'error':
         error(api.response_text(d))
         if d == api.PROBLEM_ALREADY_SOLVED:
@@ -178,7 +203,7 @@ def guess_program(auth, id, prog, name, path, expand_search):
             lost_or_won()
             exit_all()
         elif j['status'] == 'mismatch':
-            print 'Mismatch detected.  Resolving.'
+            print 'Mismatch detected on %s.  Resolving.' % name
             inp, chal_res, guess = j['values']
             expand_search(unhex(inp.encode()), unhex(chal_res.encode()))
 
@@ -194,7 +219,7 @@ def looks_lambda(s):
     
 def create_callback(f, auth, id, size, ops, path, inputs, outputs, name):
     return lambda inp, outp: f(auth, id, size, ops, path,
-                               inputs + [lhex(inp)], outputs + [lhex(outp)], name)
+                               inputs + [inp], outputs + [outp], name)
 
 
 def _run_troels_input(actionName, callback, auth, id, size, ops, path, inputs, outputs, name):
@@ -253,10 +278,16 @@ uint64_t test_values[]  = %s;
 uint64_t test_results[] = %s;
 #define RETRY_TIME 10
     ''' % (extra, size, ops_arr, values_arr, results_arr)
-    with open('solvers/genetic/data.h', 'w') as f:
+
+    tpath = tempfile.mkdtemp()
+    tpath = os.path.join(tpath, 'genetic')
+    shutil.copytree('solvers/genetic', tpath)
+    with open(os.path.join(tpath, 'data.h'), 'w') as f:
         f.write(data)
-    subprocess.Popen(['make', '-C', 'solvers/genetic'], stdout=subprocess.PIPE).communicate()
-    p = subprocess.Popen(['./solvers/genetic/genetic'], stdout=subprocess.PIPE)
+    subprocess.Popen(['make', '-C', tpath],
+                     stdout=subprocess.PIPE).communicate()
+    p = subprocess.Popen([os.path.join(tpath, 'genetic')], stdout=subprocess.PIPE)
     pids.append(p.pid)
     out = p.communicate()[0].strip()
+    shutil.rmtree(tpath)
     guess_program(auth, id, out, name, path, callback)

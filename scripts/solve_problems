@@ -3,5 +3,8 @@
 set -e
 
 for x in `cat data/missing_problems`; do
+    ./scripts/counter &
+    pid=$!
     ./scripts/command solve $x "$@"
+    kill $pid
 done

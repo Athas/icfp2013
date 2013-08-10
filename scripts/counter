@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+import os
+import time
+
+k = 10
+start = time.time()
+while True:
+    time.sleep(k)
+    dur = time.time() - start
+    print 'TIME:', dur
+    if dur > 300:
+        os.system('play sound.wav')
+        os.system('pkill command')
+        break

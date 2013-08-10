@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import atexit
 import os.path
 import sys
 import json
@@ -40,6 +41,8 @@ def run_main():
         print_help()
         return
 
+    atexit.register(cmd.exit_all)
+        
     try:
         args = sys.argv[2:]
         try:
