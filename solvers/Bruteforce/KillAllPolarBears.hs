@@ -32,7 +32,7 @@ type BruteM = ReaderT BruteEnv (StateT BruteState (ListT Par))
 
 runBrute :: S.Set Ops -> Int -> BruteM a -> [a]
 runBrute ops maxSize m = Par.runPar $ runListT $ evalStateT (runReaderT m env) s
-  where env = BruteEnv ops (S.singleton Arg) maxSize (min 10 (maxSize `div` 2))
+  where env = BruteEnv ops (S.singleton Arg) maxSize (max 10 (maxSize `div` 2))
         s = BruteState M.empty 0
 
 hasFold :: BruteM a -> BruteM a

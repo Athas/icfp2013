@@ -3,7 +3,8 @@ module Main (main)
 where
 
 import BV
-import qualified Bruteforce.KillAllPolarBears as TroelsForce
+import qualified Bruteforce.BruteForce as TroelsForce
+import qualified Bruteforce.KillAllPolarBears as KillAllPolarBears
 import qualified Bruteforce.DybberBruteForce as DybberForce
 
 import Control.Applicative
@@ -123,10 +124,13 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
+    ["killpolarbears", n] -> bruteForce KillAllPolarBears.bruteForce (read n)
     ["bruteforce", n] -> bruteForce TroelsForce.bruteForce (read n)
     ["dybberforce", n] -> bruteForce DybberForce.bruteForce (read n)
     -- Example:
     -- ./Main solve 11 '["shr1","shr4","shr16","or","tfold"]' '[(1,1),(2,2),(3,3)]'
+    ["solve_and_kill_all_polar_bears", sizestr, opsstr, iosstr] ->
+      solve KillAllPolarBears.bruteForce sizestr opsstr iosstr
     ["solve", sizestr, opsstr, iosstr] ->
       solve TroelsForce.bruteForce sizestr opsstr iosstr
     ["dybbersolve", sizestr, opsstr, iosstr] ->
