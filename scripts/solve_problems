@@ -3,5 +3,5 @@
 set -e
 
 for x in `cat data/missing_problems`; do
-    ./src/command.py solve $x
+    ./scripts/command solve $x "$@"
 done
