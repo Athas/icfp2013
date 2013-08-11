@@ -1,3 +1,5 @@
+# Stupid solution.  Should have used select or something similar.
+
 import time
 import os
 import sys
