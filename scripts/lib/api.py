@@ -71,7 +71,7 @@ def json_or_error(auth, path, body=None):
     while True:
         (code, text) = request(auth, path, body)
         if code == TRY_AGAIN:
-            print 'Rate limiting.  Trying again in 1 second!'
+            print >> sys.stderr, 'Rate limiting.  Trying again in 1 second!'
             time.sleep(1)
         else:
             break

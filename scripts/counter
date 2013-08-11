@@ -10,5 +10,5 @@ while True:
     dur = time.time() - start
     print 'TIME:', dur
     if dur > 300:
-        os.system('./scripts/solver-kill')
+        os.system('./scripts/solver_kill')
         break
