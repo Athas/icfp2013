@@ -3,6 +3,7 @@ import os
 import sys
 import random
 import json
+import thread
 import threading
 import subprocess
 import shutil
@@ -11,6 +12,8 @@ import tempfile
 import lib.api as api
 from lib.api import error
 
+mismatcher_allowed = None
+mismatcher = threading.Lock()
 guess_lock = threading.Lock()
 finish_event = threading.Event()
 exit_code = 0
@@ -168,8 +171,8 @@ def remove_file_line(path, id):
     with open(path, 'w') as f:
         f.write('\n'.join(lines))
 
-def guess_program(auth, id, prog, name, path, expand_search):
-    global has_won, n_losses
+def guess_program(auth, id, prog, name, path, expand_search, solver_pid):
+    global has_won, n_losses, mismatcher_allowed
     print 'Program found from %s: %s' % (name, prog)
     has_won_now = False
     guess_lock.acquire()
@@ -203,10 +206,25 @@ def guess_program(auth, id, prog, name, path, expand_search):
             lost_or_won()
             exit_all()
         elif j['status'] == 'mismatch':
-            print 'Mismatch detected on %s.  Resolving.' % name
-            inp, chal_res, guess = j['values']
-            expand_search(unhex(inp.encode()), unhex(chal_res.encode()))
+            mismatcher.acquire()
+            if mismatcher_allowed is None:
+                mismatcher_allowed = thread.get_ident()
+                print 'Mismatch detected on %s.  Killing other programs.  Resolving.' % name
+                kill_other_programs_than(solver_pid)
+                inp, chal_res, guess = j['values']
+            mismatcher.release()
+            if mismatcher_allowed == thread.get_ident():
+                expand_search(unhex(inp.encode()), unhex(chal_res.encode()))
 
+def kill_other_programs(than_pid):
+    for pid in pids:
+        if pid == than_pid:
+            continue
+        try:
+            os.kill(pid, 9)
+        except OSError:
+            continue
+            
 def lost_or_won():
     finish_event.set()
 
@@ -230,7 +248,7 @@ def _run_troels_input(actionName, callback, auth, id, size, ops, path, inputs, o
     pids.append(p.pid)
     out = p.communicate()[0].strip()
     if looks_lambda(out):
-        guess_program(auth, id, out, name, path, callback)
+        guess_program(auth, id, out, name, path, callback, p.pid)
     else:
         error('No solution found from %s' % name)
         global n_losses
@@ -310,4 +328,4 @@ def _run_genetic(callback, auth, id, size, ops, path, inputs, outputs, name):
     pids.append(p.pid)
     out = p.communicate()[0].strip()
     shutil.rmtree(tpath)
-    guess_program(auth, id, out, name, path, callback)
+    guess_program(auth, id, out, name, path, callback, p.pid)
