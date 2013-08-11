@@ -247,8 +247,25 @@ def _run_dybber(*args):
     
 def _run_polar(*args):
     return _run_troels_input('polarsolve', *args)
-        
-def _run_genetic(callback, auth, id, size, ops, path, inputs, outputs, name):
+
+def generate_datah_from_id(id):
+    with open('data/input-outputs-%s' % str(id)) as f:
+        d = f.read().split('\n', 1)
+    inps = eval(d[0])
+    outps = eval(d[1])
+
+    with open('data/myproblems.json') as f:
+        probs = json.load(f)
+    problems = {}
+    for row in probs:
+        problems[row['id']] = row
+
+    size = problems[id]['size']
+    ops = problems[id]['operators']
+    data = generate_datah(size, ops, inps, outps)
+    print data
+
+def generate_datah(size, ops, inputs, outputs):
     ops = set(ops)
     if 'tfold' in ops:
         ops.discard('fold')
@@ -278,7 +295,10 @@ uint64_t test_values[]  = %s;
 uint64_t test_results[] = %s;
 #define RETRY_TIME 10
     ''' % (extra, size, ops_arr, values_arr, results_arr)
-
+    return data
+    
+def _run_genetic(callback, auth, id, size, ops, path, inputs, outputs, name):
+    data = generate_datah(size, ops, inputs, outputs)
     tpath = tempfile.mkdtemp()
     tpath = os.path.join(tpath, 'genetic')
     shutil.copytree('solvers/genetic', tpath)

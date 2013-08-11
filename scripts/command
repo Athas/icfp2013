@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import atexit
 import os.path
 import sys
 import json
@@ -19,6 +18,7 @@ Your auth key must reside in the 'authkey' file.
 Commands:
   solve ID [SOLVER..]
   solvetrain ID [SOLVER..]
+  datah ID
 
 SOLVER is one of:
 %s
@@ -26,7 +26,7 @@ SOLVER is one of:
 if no SOLVER is given, all SOLVERs are used.
 
 Returns 0 on success and 1 otherwise.\
-''' % (sys.argv[0], map(lambda s: '  ' + s, cmd.solvers.keys()))
+e''' % (sys.argv[0], '\n'.join(map(lambda s: '  ' + s, cmd.solvers.keys())))
 
 def check_for_solvers(xs):
     if not xs:
@@ -41,8 +41,6 @@ def run_main():
         print_help()
         return
 
-    atexit.register(cmd.exit_all)
-        
     try:
         args = sys.argv[2:]
         try:
@@ -50,7 +48,8 @@ def run_main():
                 'solvetrain': (1, lambda: cmd.solve(auth, 'data/missing_problems_training',
                                                     'data/myproblems_training.json', args[0], check_for_solvers(args[1:]))),
                 'solve': (1, lambda: cmd.solve(auth, 'data/missing_problems',
-                                               'data/myproblems.json', args[0], check_for_solvers(args[1:])))
+                                               'data/myproblems.json', args[0], check_for_solvers(args[1:]))),
+                'datah': (1, lambda: cmd.generate_datah_from_id(args[0])),
             }[sys.argv[1]]
         except KeyError:
             raise IndexError
