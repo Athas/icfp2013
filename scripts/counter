@@ -10,6 +10,5 @@ while True:
     dur = time.time() - start
     print 'TIME:', dur
     if dur > 300:
-        os.system('play sound.wav')
-        os.system('pkill command')
+        os.system('./scripts/solver-kill')
         break
