@@ -174,6 +174,12 @@ def remove_file_line(path, id):
 
 def guess_program(auth, id, prog, name, path, expand_search, solver_pid):
     global has_won, n_losses, mismatcher_allowed
+
+    mismatcher.acquire()
+    allowed_to_guess = mismatcher_allowed is None or thread.get_ident() == mismatcher_allowed
+    mismatcher.release()
+    if not allowed_to_guess:
+        return
     print 'Program found from %s: %s' % (name, prog)
     has_won_now = False
     guess_lock.acquire()
