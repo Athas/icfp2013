@@ -176,10 +176,13 @@ def guess_program(auth, id, prog, name, path, expand_search, solver_pid):
     global has_won, n_losses, mismatcher_allowed
 
     mismatcher.acquire()
-    allowed_to_guess = mismatcher_allowed is None or thread.get_ident() == mismatcher_allowed
+    if mismatcher_allowed is None:
+        mismatcher_allowed = thread.get_ident()
+        kill_other_programs(solver_pid)
     mismatcher.release()
-    if not allowed_to_guess:
+    if not thread.get_ident() == mismatcher_allowed:
         return
+
     print 'Program found from %s: %s' % (name, prog)
     has_won_now = False
     guess_lock.acquire()
@@ -213,14 +216,9 @@ def guess_program(auth, id, prog, name, path, expand_search, solver_pid):
             lost_or_won()
             exit_all()
         elif j['status'] == 'mismatch':
-            mismatcher.acquire()
-            if mismatcher_allowed is None:
-                mismatcher_allowed = thread.get_ident()
-                print 'Mismatch detected on %s.  Killing other programs.  Resolving.' % name
-                kill_other_programs(solver_pid)
-                inp, chal_res, guess = j['values']
-            mismatcher.release()
             if mismatcher_allowed == thread.get_ident():
+                print 'Mismatch detected on %s.  Killing other programs.  Resolving.' % name
+                inp, chal_res, guess = j['values']
                 expand_search(unhex(inp.encode()), unhex(chal_res.encode()))
 
 def kill_other_programs(than_pid):
