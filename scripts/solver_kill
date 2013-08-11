@@ -3,4 +3,5 @@
 pkill -KILL MiscInterface
 pkill -KILL genetic
 pkill -KILL command
+pkill -KILL counter
 pkill -KILL solve

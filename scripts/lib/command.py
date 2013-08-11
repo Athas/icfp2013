@@ -41,11 +41,11 @@ def run_polar(*args):
     return _run_polar(create_callback(run_polar, *args), *args)
 
 def run_genetic(*args):
-    try:
-        return _run_genetic(create_callback(run_genetic, *args), *args)
-    except (KeyboardInterrupt, EOFError):
-        exit_all(1)
+    return _run_genetic(create_callback(run_genetic, *args), *args)
 
+def run_geneticham(*args):
+    return _run_geneticham(create_callback(run_geneticham, *args), *args)
+        
 def with_ki(f):
     def g(*args):
         try:
@@ -59,6 +59,7 @@ solvers = {
     'dybber': with_ki(run_dybber),
 #    'polar': with_ki(run_polar),
     'genetic': with_ki(run_genetic),
+    'geneticham': with_ki(run_geneticham),
 }
 
 def offset(n, xs):
@@ -210,7 +211,7 @@ def guess_program(auth, id, prog, name, path, expand_search, solver_pid):
             if mismatcher_allowed is None:
                 mismatcher_allowed = thread.get_ident()
                 print 'Mismatch detected on %s.  Killing other programs.  Resolving.' % name
-                kill_other_programs_than(solver_pid)
+                kill_other_programs(solver_pid)
                 inp, chal_res, guess = j['values']
             mismatcher.release()
             if mismatcher_allowed == thread.get_ident():
@@ -283,7 +284,7 @@ def generate_datah_from_id(id):
     data = generate_datah(size, ops, inps, outps)
     print data
 
-def generate_datah(size, ops, inputs, outputs):
+def generate_datah(size, ops, inputs, outputs, fit_type='NUMDIFF'):
     ops = set(ops)
     if 'tfold' in ops:
         ops.discard('fold')
@@ -307,16 +308,23 @@ def generate_datah(size, ops, inputs, outputs):
     results_arr = format_c_array(map(lambda x: lhex(x), outputs))
     
     data = '''\
-%s#define PROGSIZE %d
+%s#define %s
+#define PROGSIZE %d
 term_t ok[] = %s;
 uint64_t test_values[]  = %s;
 uint64_t test_results[] = %s;
 #define RETRY_TIME 10
-    ''' % (extra, size, ops_arr, values_arr, results_arr)
+    ''' % (extra, fit_type, size, ops_arr, values_arr, results_arr)
     return data
+
+def _run_genetic(*args):
+    _run_genetic_generic('NUMDIFF', *args)
+
+def _run_geneticham(*args):
+    _run_genetic_generic('BITDIFF', *args)
     
-def _run_genetic(callback, auth, id, size, ops, path, inputs, outputs, name):
-    data = generate_datah(size, ops, inputs, outputs)
+def _run_genetic_generic(fit_type, callback, auth, id, size, ops, path, inputs, outputs, name):
+    data = generate_datah(size, ops, inputs, outputs, fit_type)
     tpath = tempfile.mkdtemp()
     tpath = os.path.join(tpath, 'genetic')
     shutil.copytree('solvers/genetic', tpath)

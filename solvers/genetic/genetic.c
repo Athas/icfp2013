@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 //#define FIT_BITDIST
-#define FIT_NUMDIFF
+//#define FIT_NUMDIFF
 
 #define arrlen(x) (sizeof(x) / sizeof(x[0]))
 

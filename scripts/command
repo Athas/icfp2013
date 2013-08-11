@@ -26,7 +26,7 @@ SOLVER is one of:
 if no SOLVER is given, all SOLVERs are used.
 
 Returns 0 on success and 1 otherwise.\
-e''' % (sys.argv[0], '\n'.join(map(lambda s: '  ' + s, cmd.solvers.keys())))
+''' % (sys.argv[0], '\n'.join(map(lambda s: '  ' + s, cmd.solvers.keys())))
 
 def check_for_solvers(xs):
     if not xs:
