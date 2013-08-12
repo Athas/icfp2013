@@ -1,0 +1,5 @@
+#!/bin/sh
+
+while [ 1 ]; do
+    ./scripts/solve_problems "$@"
+done

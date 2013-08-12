@@ -47,7 +47,7 @@ def run_genetic(*args):
 
 def run_geneticham(*args):
     return _run_geneticham(create_callback(run_geneticham, *args), *args)
-        
+
 def with_ki(f):
     def g(*args):
         try:
@@ -100,11 +100,14 @@ def solve(*args):
         return _solve(*args)
     except (KeyboardInterrupt, EOFError):
         exit_all(1)
-    
+
 def _solve(auth, path, path2, id, local_solvers):
     global worst_case_n_losses
     worst_case_n_losses = len(local_solvers)
-    
+
+    with open('cur_id', 'w') as f:
+        f.write(str(id))
+
     with open(path2) as f:
         probs = json.load(f)
     problems = {}
@@ -163,7 +166,7 @@ def counter():
     while True:
         time.sleep(10)
         print time.time() - start
-    
+
 def remove_file_line(path, id):
     with open(path) as f:
         lines = f.read().split('\n')
@@ -231,7 +234,7 @@ def kill_other_programs(than_pid):
             os.kill(pid, 9)
         except OSError:
             continue
-            
+
 def lost_or_won():
     finish_event.set()
 
@@ -241,7 +244,7 @@ def format_c_array(xs):
 
 def looks_lambda(s):
     return s.startswith('(')
-    
+
 def create_callback(f, auth, id, size, ops, path, inputs, outputs, name):
     return lambda inp, outp: f(auth, id, size, ops, path,
                                inputs + [inp], outputs + [outp], name)
@@ -263,13 +266,13 @@ def _run_troels_input(actionName, callback, auth, id, size, ops, path, inputs, o
         if n_losses == worst_case_n_losses:
             set_exit_code(1)
             lost_or_won()
-            
+
 def _run_brute(*args):
     return _run_troels_input('solve', *args)
 
 def _run_dybber(*args):
     return _run_troels_input('dybbersolve', *args)
-    
+
 def _run_polar(*args):
     return _run_troels_input('polarsolve', *args)
 
@@ -292,6 +295,7 @@ def generate_datah_from_id(id):
 
 def generate_datah(size, ops, inputs, outputs, fit_type='NUMDIFF'):
     ops = set(ops)
+    ops.discard('bonus')
     if 'tfold' in ops:
         ops.discard('fold')
         ops.discard('arg')
@@ -308,11 +312,11 @@ def generate_datah(size, ops, inputs, outputs, fit_type='NUMDIFF'):
     ops.add('zero')
     ops.add('one')
     ops.add('arg')
-    
+
     ops_arr = format_c_array(map(lambda op: op[0].upper() + op[1:], ops))
     values_arr = format_c_array(map(lambda x: lhex(x), inputs))
     results_arr = format_c_array(map(lambda x: lhex(x), outputs))
-    
+
     data = '''\
 %s#define %s
 #define PROGSIZE %d
@@ -328,7 +332,7 @@ def _run_genetic(*args):
 
 def _run_geneticham(*args):
     _run_genetic_generic('BITDIFF', *args)
-    
+
 def _run_genetic_generic(fit_type, callback, auth, id, size, ops, path, inputs, outputs, name):
     data = generate_datah(size, ops, inputs, outputs, fit_type)
     tpath = tempfile.mkdtemp()

@@ -314,6 +314,8 @@ uint64_t fitness(term_t *terms) {
     }
     /* printf("fitness: %d\n", fitness); */
   }
+  // xor friendly fitness
+  fitness = (fitness <= 32) ? fitness : (64 - fitness);
   return fitness;
 }
 

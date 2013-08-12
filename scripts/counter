@@ -2,6 +2,7 @@
 
 import os
 import time
+import lib.command
 
 k = 10
 start = time.time()
@@ -9,6 +10,11 @@ while True:
     time.sleep(k)
     dur = time.time() - start
     print 'TIME:', dur
-    if dur > 300:
-        os.system('./scripts/solver_kill')
+    if dur > 20:
+        print 'STOPPING!'
         break
+
+with open('cur_id') as f:
+    id = f.read()
+lib.command.remove_file_line('data/missing_problems', id)
+os.system('./scripts/solver_kill')

@@ -49,6 +49,8 @@ def run_main():
                                                     'data/myproblems_training.json', args[0], check_for_solvers(args[1:]))),
                 'solve': (1, lambda: cmd.solve(auth, 'data/missing_problems',
                                                'data/myproblems.json', args[0], check_for_solvers(args[1:]))),
+                # 'solve': (1, lambda: cmd.solve(auth, 'data/missing-problems-bonus',
+                #                                'data/myproblems-with-bonuses.json', args[0], check_for_solvers(args[1:]))),
                 'datah': (1, lambda: cmd.generate_datah_from_id(args[0])),
             }[sys.argv[1]]
         except KeyError:

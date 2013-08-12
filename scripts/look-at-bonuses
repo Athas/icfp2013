@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+import json
+
+with open('data/myproblems-with-bonuses.json') as f:
+    j = json.load(f)
+
+problems = sorted(filter(lambda d: 'bonus' in d['operators'], j), key=lambda d: d['size'])
+
+for p in problems:
+    print p['id']
